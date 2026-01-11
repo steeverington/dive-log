@@ -1,6 +1,6 @@
 {
-  "short_name": "DeepLog",
-  "name": "DeepLog Scuba Logger",
+  "short_name": "Dive Log",
+  "name": "Ste's Dive Log",
   "icons": [
     {
       "src": "icon.svg",
@@ -8,7 +8,8 @@
       "sizes": "512x512"
     }
   ],
-  "start_url": ".",
+  "start_url": "./index.html",
+  "scope": ".",
   "display": "standalone",
   "theme_color": "#083344",
   "background_color": "#083344",
