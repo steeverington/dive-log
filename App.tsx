@@ -85,7 +85,7 @@ const App: React.FC = () => {
 
             {/* Views */}
             {view === 'dashboard' && (
-                <div className="pb-24 animate-fade-in">
+                <div className="pb-32 animate-fade-in">
                     {dives.length === 0 ? (
                         <div className="flex flex-col items-center justify-center mt-20 p-8 text-center animate-fade-in">
                             <div className="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center mb-4 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)]">
@@ -141,24 +141,35 @@ const App: React.FC = () => {
         {/* Bottom Navigation Bar */}
         {(view === 'dashboard' || view === 'stats') && !selectedDive && (
             <div className="fixed bottom-0 left-0 w-full z-40">
-                <div className="max-w-md mx-auto">
-                    <div className="glass-panel mx-4 mb-4 rounded-2xl p-4 flex justify-around items-center shadow-2xl">
+                {/* Gradient scrim to fade out content behind the navbar area */}
+                <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-[#083344] via-[#083344]/90 to-transparent pointer-events-none" />
+                
+                <div className="max-w-md mx-auto relative">
+                    <div className="mx-4 mb-6 rounded-2xl p-4 flex justify-around items-center shadow-[0_8px_32px_rgba(0,0,0,0.5)] bg-[#083344]/95 border border-cyan-500/30 backdrop-blur-xl">
                         <button 
                             onClick={() => setView('dashboard')}
-                            className={`flex flex-col items-center space-y-1 transition-colors ${view === 'dashboard' ? 'text-cyan-300' : 'text-cyan-600'}`}
+                            className={`flex flex-col items-center space-y-1 transition-all duration-200 ${
+                                view === 'dashboard' 
+                                    ? 'text-cyan-300 scale-110 drop-shadow-[0_0_8px_rgba(103,232,249,0.5)]' 
+                                    : 'text-cyan-400/50 hover:text-cyan-300'
+                            }`}
                         >
-                            <List size={24} />
-                            <span className="text-[10px] font-medium">Logbook</span>
+                            <List size={24} strokeWidth={view === 'dashboard' ? 2.5 : 2} />
+                            <span className="text-[10px] font-bold tracking-wide">Logbook</span>
                         </button>
                         
-                        <div className="w-px h-8 bg-cyan-800/50"></div>
+                        <div className="w-px h-8 bg-gradient-to-b from-transparent via-cyan-500/30 to-transparent"></div>
 
                         <button 
                             onClick={() => setView('stats')}
-                            className={`flex flex-col items-center space-y-1 transition-colors ${view === 'stats' ? 'text-cyan-300' : 'text-cyan-600'}`}
+                            className={`flex flex-col items-center space-y-1 transition-all duration-200 ${
+                                view === 'stats' 
+                                    ? 'text-cyan-300 scale-110 drop-shadow-[0_0_8px_rgba(103,232,249,0.5)]' 
+                                    : 'text-cyan-400/50 hover:text-cyan-300'
+                            }`}
                         >
-                            <PieChart size={24} />
-                            <span className="text-[10px] font-medium">Stats</span>
+                            <PieChart size={24} strokeWidth={view === 'stats' ? 2.5 : 2} />
+                            <span className="text-[10px] font-bold tracking-wide">Stats</span>
                         </button>
                     </div>
                 </div>
