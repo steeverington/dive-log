@@ -1,13 +1,21 @@
 import React from 'react';
 import { Dive } from '../types';
-import { X, MapPin, Clock, Calendar, Anchor, Thermometer, Eye, AlignLeft } from 'lucide-react';
+import { X, MapPin, Clock, Calendar, Anchor, Thermometer, Eye, AlignLeft, Trash2 } from 'lucide-react';
 
 interface DiveDetailsProps {
   dive: Dive;
   onClose: () => void;
+  onDelete: (id: string) => void;
 }
 
-const DiveDetails: React.FC<DiveDetailsProps> = ({ dive, onClose }) => {
+const DiveDetails: React.FC<DiveDetailsProps> = ({ dive, onClose, onDelete }) => {
+  
+  const handleDelete = () => {
+    if (window.confirm("Are you sure you want to delete this dive log? This action cannot be undone.")) {
+      onDelete(dive.id);
+    }
+  };
+
   return (
     <div className="bg-[#083344] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[85vh] w-full">
       {/* Header Image Section */}
@@ -100,7 +108,7 @@ const DiveDetails: React.FC<DiveDetailsProps> = ({ dive, onClose }) => {
         </div>
 
         {/* Notes */}
-        <div className="glass p-5 rounded-2xl bg-white/5 border border-white/5">
+        <div className="glass p-5 rounded-2xl bg-white/5 border border-white/5 mb-6">
             <h3 className="text-xs font-bold text-cyan-400 uppercase tracking-wider mb-3 flex items-center">
                 <AlignLeft size={14} className="mr-2" /> Notes
             </h3>
@@ -108,6 +116,15 @@ const DiveDetails: React.FC<DiveDetailsProps> = ({ dive, onClose }) => {
                 {dive.notes || <span className="text-cyan-200/40 italic">No notes recorded for this dive.</span>}
             </p>
         </div>
+
+        {/* Delete Action */}
+        <button 
+          onClick={handleDelete}
+          className="w-full py-3 rounded-xl border border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 text-sm font-medium"
+        >
+          <Trash2 size={16} />
+          <span>Delete Dive Log</span>
+        </button>
 
       </div>
     </div>
