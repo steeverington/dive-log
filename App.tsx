@@ -39,6 +39,11 @@ const App: React.FC = () => {
     setView('dashboard');
   };
 
+  const handleDeleteDive = (id: string) => {
+    setDives(prev => prev.filter(d => d.id !== id));
+    setSelectedDive(null);
+  };
+
   const handleDiveClick = (dive: Dive) => {
     setSelectedDive(dive);
     // Don't change view, we overlay
@@ -127,6 +132,7 @@ const App: React.FC = () => {
                     <DiveDetails 
                         dive={selectedDive}
                         onClose={() => setSelectedDive(null)}
+                        onDelete={handleDeleteDive}
                     />
                 </div>
             </div>
