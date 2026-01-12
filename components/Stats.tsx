@@ -19,21 +19,21 @@ const Stats: React.FC<StatsProps> = ({ dives }) => {
 
        <div className="grid grid-cols-3 gap-3 mb-8">
          <div className="glass p-3 rounded-xl flex flex-col items-center justify-center text-center">
-            <span className="text-2xl font-bold text-cyan-300">{totalDives}</span>
-            <span className="text-[10px] text-cyan-200/60 uppercase tracking-wide mt-1">Total Dives</span>
+            <span className="text-2xl font-bold text-sky-300">{totalDives}</span>
+            <span className="text-[10px] text-sky-200/60 uppercase tracking-wide mt-1">Total Dives</span>
          </div>
          <div className="glass p-3 rounded-xl flex flex-col items-center justify-center text-center">
-            <span className="text-2xl font-bold text-cyan-300">{(totalTime / 60).toFixed(1)}</span>
-            <span className="text-[10px] text-cyan-200/60 uppercase tracking-wide mt-1">Hours Underwater</span>
+            <span className="text-2xl font-bold text-sky-300">{(totalTime / 60).toFixed(1)}</span>
+            <span className="text-[10px] text-sky-200/60 uppercase tracking-wide mt-1">Hours Underwater</span>
          </div>
          <div className="glass p-3 rounded-xl flex flex-col items-center justify-center text-center">
-            <span className="text-2xl font-bold text-cyan-300">{maxDepth}m</span>
-            <span className="text-[10px] text-cyan-200/60 uppercase tracking-wide mt-1">Deepest Dive</span>
+            <span className="text-2xl font-bold text-sky-300">{maxDepth}m</span>
+            <span className="text-[10px] text-sky-200/60 uppercase tracking-wide mt-1">Deepest Dive</span>
          </div>
        </div>
 
        <div className="glass p-4 rounded-xl">
-           <h3 className="text-sm font-semibold text-cyan-400 mb-4">Locations</h3>
+           <h3 className="text-sm font-semibold text-sky-400 mb-4">Locations</h3>
            {dives.length > 0 ? (
                <div className="space-y-3">
                    {Array.from(new Set(dives.map(d => d.location))).map((loc) => {
@@ -41,13 +41,13 @@ const Stats: React.FC<StatsProps> = ({ dives }) => {
                        return (
                            <div key={loc} className="flex justify-between items-center text-sm">
                                <span className="text-white">{loc}</span>
-                               <span className="bg-cyan-900/50 text-cyan-300 px-2 py-1 rounded-md text-xs">{count} dives</span>
+                               <span className="bg-sky-900/50 text-sky-300 px-2 py-1 rounded-md text-xs">{count} dives</span>
                            </div>
                        )
                    })}
                </div>
            ) : (
-                <div className="text-center text-cyan-200/30 text-sm italic py-4">
+                <div className="text-center text-sky-200/30 text-sm italic py-4">
                     No locations explored yet
                 </div>
            )}
