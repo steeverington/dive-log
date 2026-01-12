@@ -9,50 +9,59 @@ interface DiveCardProps {
 
 const DiveCard: React.FC<DiveCardProps> = ({ dive, onClick }) => {
   return (
-    <div 
-      onClick={() => onClick(dive)}
-      className="glass rounded-2xl p-4 mb-4 active:scale-[0.98] transition-transform duration-200 cursor-pointer border border-cyan-800/50 hover:bg-white/10"
-    >
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex items-center space-x-2">
-          <span className="bg-cyan-500/20 text-cyan-300 text-xs font-bold px-2 py-1 rounded-full">
-            #{dive.diveNumber}
-          </span>
-          <h3 className="text-lg font-semibold text-white truncate">{dive.site}</h3>
+    <div className="relative mb-4 rounded-3xl overflow-hidden select-none">
+       <div 
+        className="relative glass border-0 rounded-3xl p-5 hover:bg-white/10 transition-transform duration-300 ease-out z-10 active:scale-[0.98] cursor-pointer"
+        onClick={() => onClick(dive)}
+       >
+        {/* Top Row: Badge & Date */}
+        <div className="flex justify-between items-center mb-3 pointer-events-none">
+            <span className="bg-cyan-500/20 text-cyan-300 text-xs font-bold px-2.5 py-1 rounded-full">
+                #{dive.diveNumber}
+            </span>
+            <span className="text-cyan-200/60 text-xs flex items-center font-medium">
+                <Calendar size={12} className="mr-1.5" />
+                {dive.date}
+            </span>
         </div>
-        <span className="text-cyan-200/60 text-xs flex items-center">
-          <Calendar size={12} className="mr-1" />
-          {dive.date}
-        </span>
-      </div>
 
-      <div className="flex items-center text-cyan-200/80 text-sm mb-3">
-        <MapPin size={14} className="mr-1" />
-        <span className="truncate">{dive.location}</span>
-      </div>
+        {/* Middle Row: Site Name & Location */}
+        <div className="mb-5 pointer-events-none">
+            <h3 className="text-2xl font-bold text-white mb-1.5 leading-tight shadow-black drop-shadow-sm">
+                {dive.site}
+            </h3>
+            <div className="flex items-center text-cyan-200/80 text-sm">
+                <MapPin size={14} className="mr-1.5 shrink-0 opacity-70" />
+                <span className="truncate font-medium">{dive.location}</span>
+            </div>
+        </div>
 
-      <div className="grid grid-cols-3 gap-2 mt-2">
-        <div className="bg-cyan-950/40 rounded-lg p-2 flex flex-col items-center justify-center">
-          <div className="flex items-center text-cyan-400 text-xs mb-1">
-            <ArrowDown size={12} className="mr-1" />
-            Depth
-          </div>
-          <span className="font-mono text-white font-medium">{dive.maxDepth}m</span>
-        </div>
-        <div className="bg-cyan-950/40 rounded-lg p-2 flex flex-col items-center justify-center">
-          <div className="flex items-center text-cyan-400 text-xs mb-1">
-            <Clock size={12} className="mr-1" />
-            Time
-          </div>
-          <span className="font-mono text-white font-medium">{dive.duration}'</span>
-        </div>
-        <div className="bg-cyan-950/40 rounded-lg p-2 flex flex-col items-center justify-center">
-          <div className="text-cyan-400 text-xs mb-1">
-            Rating
-          </div>
-          <span className="text-yellow-400 text-xs">
-            {'★'.repeat(dive.rating)}
-          </span>
+        {/* Bottom Row: Stats */}
+        <div className="grid grid-cols-3 gap-2 pointer-events-none">
+            <div className="bg-cyan-950/40 rounded-2xl p-2.5 flex flex-col items-center justify-center">
+                <div className="flex items-center text-cyan-400/80 text-[10px] uppercase tracking-wider font-bold mb-0.5">
+                    <ArrowDown size={10} className="mr-1" />
+                    Depth
+                </div>
+                <span className="font-mono text-white font-bold text-lg leading-none">{dive.maxDepth}<span className="text-sm font-normal text-cyan-200/50 ml-0.5">m</span></span>
+            </div>
+            <div className="bg-cyan-950/40 rounded-2xl p-2.5 flex flex-col items-center justify-center">
+                <div className="flex items-center text-cyan-400/80 text-[10px] uppercase tracking-wider font-bold mb-0.5">
+                    <Clock size={10} className="mr-1" />
+                    Time
+                </div>
+                <span className="font-mono text-white font-bold text-lg leading-none">{dive.duration}<span className="text-sm font-normal text-cyan-200/50 ml-0.5">'</span></span>
+            </div>
+            <div className="bg-cyan-950/40 rounded-2xl p-2.5 flex flex-col items-center justify-center">
+                <div className="text-cyan-400/80 text-[10px] uppercase tracking-wider font-bold mb-0.5">
+                    Rating
+                </div>
+                <div className="flex space-x-[1px] pt-1">
+                     {[...Array(5)].map((_, i) => (
+                        <span key={i} className={`text-xs leading-none ${i < dive.rating ? 'text-yellow-400' : 'text-cyan-900'}`}>★</span>
+                     ))}
+                </div>
+            </div>
         </div>
       </div>
     </div>
