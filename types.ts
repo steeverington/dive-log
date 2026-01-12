@@ -4,6 +4,7 @@ export interface Dive {
   date: string;
   location: string;
   site: string;
+  buddies?: string;
   duration: number; // in minutes
   maxDepth: number; // in meters
   visibility?: string;
