@@ -8,30 +8,25 @@ import Stats from './components/Stats';
 import { Plus, List, PieChart, Anchor } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [dives, setDives] = useState<Dive[]>([]);
+  // Initialize state lazily from localStorage to avoid race conditions and ensure persistence works correctly
+  const [dives, setDives] = useState<Dive[]>(() => {
+    try {
+      const savedDives = localStorage.getItem('deepLogDives');
+      if (savedDives) {
+        return JSON.parse(savedDives);
+      }
+    } catch (e) {
+      console.error("Failed to parse saved dives", e);
+    }
+    return INITIAL_DIVES;
+  });
+
   const [view, setView] = useState<ViewState>('dashboard');
   const [selectedDive, setSelectedDive] = useState<Dive | null>(null);
 
-  // Load dives from local storage or fall back to INITIAL_DIVES
-  useEffect(() => {
-    const savedDives = localStorage.getItem('deepLogDives');
-    if (savedDives) {
-      try {
-        setDives(JSON.parse(savedDives));
-      } catch (e) {
-        console.error("Failed to parse saved dives", e);
-        setDives(INITIAL_DIVES);
-      }
-    } else {
-      setDives(INITIAL_DIVES);
-    }
-  }, []);
-
   // Save dives to local storage whenever they change
   useEffect(() => {
-    if (dives.length > 0) {
-        localStorage.setItem('deepLogDives', JSON.stringify(dives));
-    }
+    localStorage.setItem('deepLogDives', JSON.stringify(dives));
   }, [dives]);
 
   const handleAddDive = (newDive: Dive) => {
@@ -40,7 +35,26 @@ const App: React.FC = () => {
   };
 
   const handleDeleteDive = (id: string) => {
-    setDives(prev => prev.filter(d => d.id !== id));
+    setDives(prev => {
+      const remaining = prev.filter(d => d.id !== id);
+      
+      // Sort by date to ensure correct chronological re-numbering
+      // If dates are the same, preserve original relative order using the previous dive number
+      remaining.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        if (dateA !== dateB) {
+            return dateA - dateB;
+        }
+        return a.diveNumber - b.diveNumber;
+      });
+
+      // Re-assign dive numbers sequentially
+      return remaining.map((dive, index) => ({
+        ...dive,
+        diveNumber: index + 1
+      }));
+    });
     setSelectedDive(null);
   };
 
@@ -61,11 +75,11 @@ const App: React.FC = () => {
         <div className="fixed bottom-0 right-0 w-64 h-64 bg-blue-900/20 blur-[80px] pointer-events-none z-0" />
 
         {/* Content Area */}
-        <main className="relative z-10 max-w-md mx-auto min-h-screen px-4 pt-12">
+        <main className="relative z-10 max-w-md mx-auto min-h-screen pt-12">
             
             {/* Header (Only show on dashboard) */}
-            {view === 'dashboard' && (
-                <div className="flex justify-between items-end mb-6 animate-slide-down">
+            {(view === 'dashboard' || view === 'add') && (
+                <div className={`flex justify-between items-end mb-6 px-4 animate-slide-down transition-opacity duration-300 ${view === 'add' ? 'opacity-30' : 'opacity-100'}`}>
                     <div>
                         <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-200 to-white">
                             Ste's Log
@@ -74,18 +88,13 @@ const App: React.FC = () => {
                             {dives.length} dives logged
                         </p>
                     </div>
-                    <button 
-                        onClick={() => setView('add')}
-                        className="bg-cyan-500 hover:bg-cyan-400 text-cyan-950 p-3 rounded-full shadow-lg shadow-cyan-500/20 active:scale-90 transition-transform"
-                    >
-                        <Plus size={24} />
-                    </button>
                 </div>
             )}
 
             {/* Views */}
-            {view === 'dashboard' && (
-                <div className="pb-32 animate-fade-in">
+            {/* We keep the list rendered behind the add form for the overlay effect */}
+            {(view === 'dashboard' || view === 'add') && (
+                <div className={`pb-32 px-4 transition-all duration-300 ${view === 'add' ? 'opacity-30 scale-95 origin-top blur-[2px]' : 'opacity-100'}`}>
                     {dives.length === 0 ? (
                         <div className="flex flex-col items-center justify-center mt-20 p-8 text-center animate-fade-in">
                             <div className="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center mb-4 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)]">
@@ -98,7 +107,11 @@ const App: React.FC = () => {
                         </div>
                     ) : (
                         sortedDives.map(dive => (
-                            <DiveCard key={dive.id} dive={dive} onClick={handleDiveClick} />
+                            <DiveCard 
+                                key={dive.id} 
+                                dive={dive} 
+                                onClick={handleDiveClick} 
+                            />
                         ))
                     )}
                 </div>
@@ -113,14 +126,16 @@ const App: React.FC = () => {
             )}
 
             {view === 'stats' && (
-                <Stats dives={dives} />
+                <div className="px-4">
+                    <Stats dives={dives} />
+                </div>
             )}
 
         </main>
 
         {/* Dive Details Modal Overlay */}
         {selectedDive && (
-            <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 {/* Backdrop */}
                 <div 
                     className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-fade-in"
@@ -128,7 +143,7 @@ const App: React.FC = () => {
                 />
                 
                 {/* Card */}
-                <div className="relative w-full max-w-md z-10 animate-slide-up">
+                <div className="relative w-full max-w-md z-10 animate-pop-in">
                     <DiveDetails 
                         dive={selectedDive}
                         onClose={() => setSelectedDive(null)}
@@ -144,32 +159,39 @@ const App: React.FC = () => {
                 {/* Gradient scrim to fade out content behind the navbar area */}
                 <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-[#083344] via-[#083344]/90 to-transparent pointer-events-none" />
                 
-                <div className="max-w-md mx-auto relative">
-                    <div className="mx-4 mb-6 rounded-2xl p-4 flex justify-around items-center shadow-[0_8px_32px_rgba(0,0,0,0.5)] bg-[#083344]/95 border border-cyan-500/30 backdrop-blur-xl">
+                <div className="max-w-md mx-auto relative px-6 pb-8">
+                    <div className="rounded-full py-2 flex items-center justify-evenly shadow-[0_8px_32px_rgba(0,0,0,0.5)] bg-[#083344]/90 border border-cyan-500/30 backdrop-blur-xl">
+                        
                         <button 
                             onClick={() => setView('dashboard')}
-                            className={`flex flex-col items-center space-y-1 transition-all duration-200 ${
+                            className={`flex flex-col items-center justify-center h-14 w-14 transition-all duration-200 ${
                                 view === 'dashboard' 
-                                    ? 'text-cyan-300 scale-110 drop-shadow-[0_0_8px_rgba(103,232,249,0.5)]' 
+                                    ? 'text-cyan-300' 
                                     : 'text-cyan-400/50 hover:text-cyan-300'
                             }`}
                         >
                             <List size={24} strokeWidth={view === 'dashboard' ? 2.5 : 2} />
-                            <span className="text-[10px] font-bold tracking-wide">Logbook</span>
+                            <span className="text-[10px] font-bold tracking-wide mt-1">Logs</span>
                         </button>
                         
-                        <div className="w-px h-8 bg-gradient-to-b from-transparent via-cyan-500/30 to-transparent"></div>
+                        <button 
+                            onClick={() => setView('add')}
+                            className="bg-cyan-400 hover:bg-cyan-300 text-cyan-950 p-3.5 rounded-full active:scale-90 transition-all transform hover:-translate-y-1"
+                            aria-label="Log new dive"
+                        >
+                            <Plus size={28} strokeWidth={2.5} />
+                        </button>
 
                         <button 
                             onClick={() => setView('stats')}
-                            className={`flex flex-col items-center space-y-1 transition-all duration-200 ${
+                            className={`flex flex-col items-center justify-center h-14 w-14 transition-all duration-200 ${
                                 view === 'stats' 
-                                    ? 'text-cyan-300 scale-110 drop-shadow-[0_0_8px_rgba(103,232,249,0.5)]' 
+                                    ? 'text-cyan-300' 
                                     : 'text-cyan-400/50 hover:text-cyan-300'
                             }`}
                         >
                             <PieChart size={24} strokeWidth={view === 'stats' ? 2.5 : 2} />
-                            <span className="text-[10px] font-bold tracking-wide">Stats</span>
+                            <span className="text-[10px] font-bold tracking-wide mt-1">Stats</span>
                         </button>
                     </div>
                 </div>
@@ -197,6 +219,13 @@ const App: React.FC = () => {
             }
             .animate-slide-up {
                 animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+            @keyframes popIn {
+                from { opacity: 0; transform: scale(0.95) translateY(10px); }
+                to { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            .animate-pop-in {
+                animation: popIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             }
         `}</style>
     </div>
