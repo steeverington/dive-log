@@ -1,5 +1,8 @@
 import { Dive } from './types';
 
+// Increment this when INITIAL_DIVES changes to force an update in App.tsx
+export const DATA_VERSION = '1.1'; 
+
 const RAW_CSV = `Date,Location,Site,Buddies,Depth (m),Duration (min),Water temp,Rating,Notes
 2016-11-12,Sydney,Malabar,Stef,5,32,19ºC,,Lots of stingrays & car wreck
 2016-11-13,Sydney,Bare Island,Stef,10,35,19ºC,,Sting rays and jellies
@@ -166,7 +169,7 @@ const RAW_CSV = `Date,Location,Site,Buddies,Depth (m),Duration (min),Water temp,
 2021-11-04,Lady Elliot,West reefs,LE Diving,21,60,23ºC,,
 2021-11-05,Lady Elliot,Wreck,LE Diving,22,55,23ºC,,
 2021-11-06,Lady Elliot,Blowhole,LE Diving,23,59,24ºC,,"Huge tawny nurse shark, Blowhole is amazing! 100% coral coverage"
-2021-11-07,Lady Elliot,Blowhole,25,48,24ºC,,
+2021-11-07,Lady Elliot,Blowhole,,25,48,24ºC,,
 2021-11-07,Lady Elliot,West reefs,LE Diving,17,59,24ºC,,
 2021-11-20,Sunshine Coast,HMAS Brisbane,Jimmy,21,39,21ºC,,
 2021-12-04,Sunshine Coast,Wobby Rock,"Karren, Amanda, Kent",19,61,24ºC,,Changed over shark reciever at Wobby Rock
