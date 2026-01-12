@@ -69,22 +69,22 @@ const App: React.FC = () => {
   }, [dives]);
 
   return (
-    <div className="min-h-screen bg-[#083344] text-cyan-50 font-sans selection:bg-cyan-500/30">
+    <div className="min-h-screen bg-[#082f49] text-sky-50 font-sans selection:bg-sky-500/30">
         {/* Background Gradients/Glows */}
-        <div className="fixed top-0 left-0 w-full h-96 bg-cyan-900/20 blur-[100px] pointer-events-none z-0" />
-        <div className="fixed bottom-0 right-0 w-64 h-64 bg-blue-900/20 blur-[80px] pointer-events-none z-0" />
+        <div className="fixed top-0 left-0 w-full h-96 bg-sky-900/20 blur-[100px] pointer-events-none z-0" />
+        <div className="fixed bottom-0 right-0 w-64 h-64 bg-indigo-900/20 blur-[80px] pointer-events-none z-0" />
 
         {/* Content Area */}
         <main className="relative z-10 max-w-md mx-auto min-h-screen pt-12">
             
             {/* Header (Only show on dashboard) */}
             {(view === 'dashboard' || view === 'add') && (
-                <div className={`flex justify-between items-end mb-6 px-4 animate-slide-down transition-opacity duration-300 ${view === 'add' ? 'opacity-30' : 'opacity-100'}`}>
+                <div className={`flex justify-between items-end mb-6 px-4 ${view === 'add' ? 'opacity-30' : 'opacity-100'}`}>
                     <div>
-                        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-200 to-white">
+                        <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-200 to-white">
                             Ste's Log
                         </h1>
-                        <p className="text-cyan-400 text-sm opacity-80">
+                        <p className="text-sky-400 text-sm opacity-80">
                             {dives.length} dives logged
                         </p>
                     </div>
@@ -94,14 +94,14 @@ const App: React.FC = () => {
             {/* Views */}
             {/* We keep the list rendered behind the add form for the overlay effect */}
             {(view === 'dashboard' || view === 'add') && (
-                <div className={`pb-32 px-4 transition-all duration-300 ${view === 'add' ? 'opacity-30 scale-95 origin-top blur-[2px]' : 'opacity-100'}`}>
+                <div className={`pb-32 px-4 ${view === 'add' ? 'opacity-30 scale-95 origin-top blur-[2px]' : 'opacity-100'}`}>
                     {dives.length === 0 ? (
                         <div className="flex flex-col items-center justify-center mt-20 p-8 text-center animate-fade-in">
-                            <div className="w-20 h-20 bg-cyan-500/10 rounded-full flex items-center justify-center mb-4 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.1)]">
-                                <Anchor size={32} className="text-cyan-400" />
+                            <div className="w-20 h-20 bg-sky-500/10 rounded-full flex items-center justify-center mb-4 border border-sky-500/20 shadow-[0_0_15px_rgba(14,165,233,0.1)]">
+                                <Anchor size={32} className="text-sky-400" />
                             </div>
                             <h3 className="text-xl font-semibold text-white mb-2">Start Your Log</h3>
-                            <p className="text-cyan-200/60 text-sm leading-relaxed max-w-xs">
+                            <p className="text-sky-200/60 text-sm leading-relaxed max-w-xs">
                                 Your logbook is currently empty. Tap the + button to record your first dive from Ste's Log!
                             </p>
                         </div>
@@ -157,17 +157,17 @@ const App: React.FC = () => {
         {(view === 'dashboard' || view === 'stats') && !selectedDive && (
             <div className="fixed bottom-0 left-0 w-full z-40">
                 {/* Gradient scrim to fade out content behind the navbar area */}
-                <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-[#083344] via-[#083344]/90 to-transparent pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-[#082f49] via-[#082f49]/90 to-transparent pointer-events-none" />
                 
                 <div className="max-w-md mx-auto relative px-6 pb-8">
-                    <div className="rounded-full py-2 flex items-center justify-evenly shadow-[0_8px_32px_rgba(0,0,0,0.5)] bg-[#083344]/90 border border-cyan-500/30 backdrop-blur-xl">
+                    <div className="rounded-full py-2 flex items-center justify-evenly shadow-[0_8px_32px_rgba(0,0,0,0.5)] bg-[#082f49]/90 border border-sky-500/30 backdrop-blur-xl">
                         
                         <button 
                             onClick={() => setView('dashboard')}
                             className={`flex flex-col items-center justify-center h-14 w-14 transition-all duration-200 ${
                                 view === 'dashboard' 
-                                    ? 'text-cyan-300' 
-                                    : 'text-cyan-400/50 hover:text-cyan-300'
+                                    ? 'text-sky-300' 
+                                    : 'text-sky-400/50 hover:text-sky-300'
                             }`}
                         >
                             <List size={24} strokeWidth={view === 'dashboard' ? 2.5 : 2} />
@@ -176,7 +176,7 @@ const App: React.FC = () => {
                         
                         <button 
                             onClick={() => setView('add')}
-                            className="bg-cyan-400 hover:bg-cyan-300 text-cyan-950 p-3.5 rounded-full active:scale-90 transition-all transform hover:-translate-y-1"
+                            className="bg-sky-400 text-sky-950 p-3.5 rounded-full active:scale-90 transition-transform"
                             aria-label="Log new dive"
                         >
                             <Plus size={28} strokeWidth={2.5} />
@@ -186,8 +186,8 @@ const App: React.FC = () => {
                             onClick={() => setView('stats')}
                             className={`flex flex-col items-center justify-center h-14 w-14 transition-all duration-200 ${
                                 view === 'stats' 
-                                    ? 'text-cyan-300' 
-                                    : 'text-cyan-400/50 hover:text-cyan-300'
+                                    ? 'text-sky-300' 
+                                    : 'text-sky-400/50 hover:text-sky-300'
                             }`}
                         >
                             <PieChart size={24} strokeWidth={view === 'stats' ? 2.5 : 2} />
