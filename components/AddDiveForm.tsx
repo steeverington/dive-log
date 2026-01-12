@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Dive } from '../types';
-import { X, ChevronRight, Star, Eye, Anchor, MapPin, Clock, ChevronLeft } from 'lucide-react';
+import { X, ChevronRight, Star, Eye, Anchor, MapPin, Clock, ChevronLeft, Users } from 'lucide-react';
 
 interface AddDiveFormProps {
   lastDiveNumber: number;
@@ -195,10 +195,11 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, existingDives
     waterTemp: 24,
     site: '',
     location: '',
+    buddies: '',
     notes: '',
   });
 
-  const stepTitles = ["Log a new dive", "Max Depth", "Water Temp", "Conditions", "Reflections"];
+  const stepTitles = ["Log a new dive", "Max Depth", "Water Temp", "Dive details", "Reflections"];
 
   // --- AutoComplete Logic ---
   const uniqueLocations = useMemo(() => {
@@ -253,6 +254,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, existingDives
       date: formData.date!,
       location: formData.location!,
       site: formData.site!,
+      buddies: formData.buddies || '',
       duration: formData.duration || 0,
       maxDepth: formData.maxDepth || 0,
       waterTemp: formData.waterTemp,
@@ -355,7 +357,10 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, existingDives
                     value={formData.location} 
                     onChange={handleChange}
                     onFocus={() => { setIsInputFocused(true); setActiveField('location'); }} 
-                    onBlur={() => { setIsInputFocused(false); setTimeout(() => setActiveField(null), 200); }}
+                    onBlur={() => { 
+                        setIsInputFocused(false); 
+                        setTimeout(() => setActiveField(prev => prev === 'location' ? null : prev), 200); 
+                    }}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-sky-400 min-w-0"
                     autoComplete="off"
                   />
@@ -386,7 +391,10 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, existingDives
                     value={formData.site} 
                     onChange={handleChange}
                     onFocus={() => { setIsInputFocused(true); setActiveField('site'); }} 
-                    onBlur={() => { setIsInputFocused(false); setTimeout(() => setActiveField(null), 200); }}
+                    onBlur={() => { 
+                        setIsInputFocused(false); 
+                        setTimeout(() => setActiveField(prev => prev === 'site' ? null : prev), 200); 
+                    }}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-sky-400 min-w-0"
                     autoComplete="off"
                   />
@@ -419,6 +427,17 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, existingDives
                     type="number" name="duration" value={formData.duration} onChange={handleChange}
                     onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-sky-400 min-w-0 appearance-none"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-sky-200 uppercase tracking-widest ml-1">Buddies</label>
+                <div className="relative">
+                  <Users size={18} className="absolute left-4 top-4 text-sky-400" />
+                  <input 
+                    type="text" name="buddies" placeholder="Who did you dive with?" value={formData.buddies} onChange={handleChange}
+                    onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-sky-400 min-w-0"
                   />
                 </div>
               </div>
