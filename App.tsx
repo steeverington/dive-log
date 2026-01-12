@@ -120,6 +120,7 @@ const App: React.FC = () => {
             {view === 'add' && (
                 <AddDiveForm 
                     lastDiveNumber={dives.length > 0 ? Math.max(...dives.map(d => d.diveNumber)) : 0}
+                    existingDives={dives}
                     onSave={handleAddDive}
                     onCancel={() => setView('dashboard')}
                 />
