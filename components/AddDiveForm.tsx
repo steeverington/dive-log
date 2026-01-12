@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Dive } from '../types';
-import { X, ChevronRight, Star, Eye, Anchor, MapPin, Clock } from 'lucide-react';
+import { X, ChevronRight, Star, Eye, Anchor, MapPin, Clock, ChevronLeft } from 'lucide-react';
 
 interface AddDiveFormProps {
   lastDiveNumber: number;
@@ -8,225 +8,28 @@ interface AddDiveFormProps {
   onCancel: () => void;
 }
 
-// --- Physics Constants ---
-const MAX_DEPTH_SCALE = 40; // Max depth in meters for the visual scale
-const MAX_TEMP_SCALE = 40; // Max temp in celsius
-const SPRING_STRENGTH = 0.1;
-const DAMPING = 0.85;
+// --- Constants ---
+const MAX_DEPTH_SCALE = 40;
+const MAX_TEMP_SCALE = 40;
+const SPRING_STRENGTH = 0.08;
+const DAMPING = 0.82;
 const WAVE_BASE_AMP = 8;
-const WAVE_SPEED_BASE = 0.05;
+const WAVE_SPEED_BASE = 0.035;
 
-// --- Helper Component: Physics Water Canvas (Depth) ---
-const DepthVisualizer = ({ depth, active }: { depth: number; active: boolean }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  // Physics State (kept in ref to avoid react render cycle lag)
-  const physics = useRef({
-    level: depth,      // Current visual level
-    velocity: 0,       // Current velocity of level change
-    phase: 0,          // Wave scroll phase
-    turbulence: 0,     // Extra wave height based on movement
-    bubbles: [] as {x: number, y: number, r: number, s: number, off: number}[]
-  });
-  
-  // Track logical dimensions to sync render loop with resize observer
-  const dimensions = useRef({ width: 0, height: 0 });
-
-  // Sync target without triggering render loop resets
-  const targetDepth = useRef(depth);
-  useEffect(() => {
-    targetDepth.current = depth;
-  }, [depth]);
-
-  // Handle Resize with ResizeObserver for robustness
-  useEffect(() => {
-    if (!active) return;
-    const container = containerRef.current;
-    const canvas = canvasRef.current;
-    if (!container || !canvas) return;
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      const width = entry.contentRect.width;
-      const height = entry.contentRect.height;
-      // Cap DPR at 2 to prevent memory crashes on high-res iOS screens
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-          ctx.scale(dpr, dpr);
-      }
-      
-      dimensions.current = { width, height };
-    });
-
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, [active]);
-
-  // Animation Loop
-  useEffect(() => {
-    if (!active) return;
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    let animationFrameId: number;
-    let lastTime = performance.now();
-
-    // Initialize bubbles if empty
-    if (physics.current.bubbles.length === 0) {
-        for(let i=0; i<20; i++) {
-            physics.current.bubbles.push({
-                x: Math.random(), 
-                y: Math.random(), 
-                r: 1 + Math.random() * 4, 
-                s: 0.2 + Math.random() * 0.8, 
-                off: Math.random() * Math.PI * 2 
-            });
-        }
-    }
-
-    const render = (time: number) => {
-      const { width, height } = dimensions.current;
-      if (width === 0 || height === 0) {
-        animationFrameId = requestAnimationFrame(render);
-        return;
-      }
-      
-      const p = physics.current;
-      const targetLevel = targetDepth.current;
-      
-      const displacement = targetLevel - p.level;
-      const acceleration = displacement * SPRING_STRENGTH;
-      p.velocity += acceleration;
-      p.velocity *= DAMPING;
-      p.level += p.velocity;
-
-      const kinetic = Math.abs(p.velocity);
-      const targetTurbulence = kinetic * 8; 
-      p.turbulence = p.turbulence * 0.9 + targetTurbulence * 0.1;
-      
-      p.phase += WAVE_SPEED_BASE + (kinetic * 0.02);
-      const currentAmp = WAVE_BASE_AMP + Math.min(p.turbulence, 35);
-
-      const fillRatio = Math.max(0, Math.min(1.3, p.level / MAX_DEPTH_SCALE)); 
-      const waterSurfaceY = height - (fillRatio * height);
-
-      ctx.clearRect(0, 0, width, height);
-
-      // Bubbles
-      ctx.save();
-      ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-      p.bubbles.forEach(b => {
-         b.y -= b.s * 0.005;
-         if (b.y < -0.1) b.y = 1.1;
-         const bubbleY = b.y * height;
-         const bubbleX = (b.x * width) + Math.sin(time * 0.001 + b.off) * (10 + p.turbulence);
-         if (bubbleY > waterSurfaceY + (currentAmp * 0.5)) {
-             ctx.beginPath();
-             ctx.arc(bubbleX, bubbleY, b.r, 0, Math.PI * 2);
-             ctx.fill();
-         }
-      });
-      ctx.restore();
-
-      // Waves
-      const drawWave = (offsetPhase: number, color: string, ampFactor: number, yOffset: number) => {
-        ctx.beginPath();
-        ctx.moveTo(0, height); 
-        const step = 5; 
-        for (let x = 0; x <= width + step; x += step) {
-           const scaledX = x * 0.015;
-           const y = waterSurfaceY + yOffset + 
-                     Math.sin(scaledX + p.phase + offsetPhase) * (currentAmp * ampFactor) + 
-                     Math.sin(scaledX * 2.1 + p.phase * 1.3) * (currentAmp * 0.4 * ampFactor);
-           ctx.lineTo(x, y);
-        }
-        ctx.lineTo(width, height); 
-        ctx.lineTo(0, height);
-        ctx.closePath();
-        ctx.fillStyle = color;
-        ctx.fill();
-      };
-
-      drawWave(0, 'rgba(6, 182, 212, 0.4)', 0.8, 10); 
-      drawWave(2, 'rgba(34, 211, 238, 0.6)', 0.9, 5);
-      
-      const gradient = ctx.createLinearGradient(0, waterSurfaceY - 50, 0, height);
-      gradient.addColorStop(0, 'rgba(103, 232, 249, 0.95)');
-      gradient.addColorStop(1, 'rgba(8, 51, 68, 0.9)');
-
-      ctx.fillStyle = gradient;
-      ctx.beginPath();
-      ctx.moveTo(0, height);
-      const step = 4;
-      for (let x = 0; x <= width + step; x += step) {
-           const scaledX = x * 0.015;
-           const y = waterSurfaceY + 
-                     Math.sin(scaledX + p.phase + 4) * currentAmp + 
-                     Math.cos(scaledX * 1.7 - p.phase) * (currentAmp * 0.4);
-           ctx.lineTo(x, y);
-      }
-      ctx.lineTo(width, height);
-      ctx.lineTo(0, height);
-      ctx.closePath();
-      ctx.fill();
-
-      // Highlight
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (let x = 0; x <= width + step; x += step) {
-           const scaledX = x * 0.015;
-           const y = waterSurfaceY + 
-                     Math.sin(scaledX + p.phase + 4) * currentAmp + 
-                     Math.cos(scaledX * 1.7 - p.phase) * (currentAmp * 0.4);
-           if (x === 0) ctx.moveTo(0, y);
-           else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
-
-      animationFrameId = requestAnimationFrame(render);
-    };
-    render(lastTime);
-    return () => cancelAnimationFrame(animationFrameId);
-  }, [active]);
-
-  return (
-    <div ref={containerRef} className="absolute inset-0 w-full h-full pointer-events-none bg-cyan-900/20">
-      {active && <canvas ref={canvasRef} className="block w-full h-full" />}
-    </div>
-  );
-};
-
-// --- Helper Component: Physics Water Canvas (Temperature) ---
-const TemperatureVisualizer = ({ temp, active }: { temp: number; active: boolean }) => {
+// --- Combined Physics Background ---
+const ScubaBackground = ({ step, depth, temp, active }: { step: number; depth: number; temp: number; active: boolean }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const physics = useRef({
-    level: temp,
+    level: 50, // starting height in pixels
     velocity: 0,
     phase: 0,
     turbulence: 0,
-    bubbles: [] as {x: number, y: number, r: number, s: number, off: number}[]
+    color: { r: 6, g: 182, b: 212 }
   });
-  
-  const dimensions = useRef({ width: 0, height: 0 });
-  const targetTemp = useRef(temp);
 
-  useEffect(() => {
-    targetTemp.current = temp;
-  }, [temp]);
+  const dimensions = useRef({ width: 0, height: 0 });
 
   useEffect(() => {
     if (!active) return;
@@ -238,8 +41,7 @@ const TemperatureVisualizer = ({ temp, active }: { temp: number; active: boolean
       const entry = entries[0];
       const width = entry.contentRect.width;
       const height = entry.contentRect.height;
-      // Cap DPR at 2
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
@@ -262,210 +64,116 @@ const TemperatureVisualizer = ({ temp, active }: { temp: number; active: boolean
     if (!ctx) return;
 
     let animationFrameId: number;
-    let lastTime = performance.now();
-
-    if (physics.current.bubbles.length === 0) {
-        for(let i=0; i<20; i++) {
-            physics.current.bubbles.push({
-                x: Math.random(), 
-                y: Math.random(), 
-                r: 1 + Math.random() * 4, 
-                s: 0.2 + Math.random() * 0.8, 
-                off: Math.random() * Math.PI * 2 
-            });
-        }
-    }
-
-    const render = (time: number) => {
+    const render = () => {
       const { width, height } = dimensions.current;
       if (width === 0 || height === 0) {
         animationFrameId = requestAnimationFrame(render);
         return;
       }
-      
+
       const p = physics.current;
-      const targetLevel = targetTemp.current;
       
+      // Target Level based on step
+      let targetLevel = height * 0.15; // 15% baseline fill
+      if (step === 2) targetLevel = Math.max(height * 0.1, (depth / MAX_DEPTH_SCALE) * height);
+      if (step === 3) targetLevel = Math.max(height * 0.1, (temp / MAX_TEMP_SCALE) * height);
+
+      // Target Color based on step - Adjusted for better visibility
+      let targetColor = { r: 6, g: 182, b: 212 }; // Step 1, 4, 5: Cyan 500
+      if (step === 2) {
+         targetColor = { r: 14, g: 116, b: 144 }; // Step 2: Cyan 700 (Ocean Blue)
+      } else if (step === 3) {
+         if (temp <= 25) targetColor = { r: 56, g: 189, b: 248 }; // Sky 400 (Cold)
+         else if (temp <= 30) targetColor = { r: 251, g: 146, b: 60 }; // Orange 400 (Warm)
+         else targetColor = { r: 239, g: 68, b: 68 }; // Red 500 (Hot)
+      }
+
+      // Physics interpolation
       const displacement = targetLevel - p.level;
-      const acceleration = displacement * SPRING_STRENGTH;
-      p.velocity += acceleration;
+      p.velocity += displacement * SPRING_STRENGTH;
       p.velocity *= DAMPING;
       p.level += p.velocity;
-
-      const kinetic = Math.abs(p.velocity);
-      const targetTurbulence = kinetic * 8; 
-      p.turbulence = p.turbulence * 0.9 + targetTurbulence * 0.1;
       
-      p.phase += WAVE_SPEED_BASE + (kinetic * 0.02);
-      const currentAmp = WAVE_BASE_AMP + Math.min(p.turbulence, 35);
+      p.color.r += (targetColor.r - p.color.r) * 0.05;
+      p.color.g += (targetColor.g - p.color.g) * 0.05;
+      p.color.b += (targetColor.b - p.color.b) * 0.05;
 
-      const fillRatio = Math.max(0, Math.min(1.3, p.level / MAX_TEMP_SCALE)); 
-      const waterSurfaceY = height - (fillRatio * height);
-
-      // Color Interpolation Logic
-      const getThemeColor = (t: number) => {
-        let r, g, b;
-        if (t <= 27) {
-            const p = Math.max(0, t / 27);
-            r = 224 + (14 - 224) * p;
-            g = 242 + (165 - 242) * p;
-            b = 254 + (233 - 254) * p;
-        } else if (t <= 32) {
-            const p = (t - 27) / 5;
-            r = 14 + (251 - 14) * p;
-            g = 165 + (146 - 165) * p;
-            b = 233 + (60 - 233) * p;
-        } else {
-            const p = Math.min(1, (t - 32) / 8);
-            r = 251 + (220 - 251) * p;
-            g = 146 + (38 - 146) * p;
-            b = 60 + (38 - 60) * p;
-        }
-        return {r, g, b};
-      };
-
-      const c = getThemeColor(p.level); 
-      const colorStr = (a: number) => `rgba(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)}, ${a})`;
+      p.phase += WAVE_SPEED_BASE;
+      const waterSurfaceY = height - p.level;
 
       ctx.clearRect(0, 0, width, height);
 
-      // Bubbles
-      ctx.save();
-      ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-      p.bubbles.forEach(b => {
-         b.y -= b.s * 0.005;
-         if (b.y < -0.1) b.y = 1.1;
-         const bubbleY = b.y * height;
-         const bubbleX = (b.x * width) + Math.sin(time * 0.001 + b.off) * (10 + p.turbulence);
-         if (bubbleY > waterSurfaceY + (currentAmp * 0.5)) {
-             ctx.beginPath();
-             ctx.arc(bubbleX, bubbleY, b.r, 0, Math.PI * 2);
-             ctx.fill();
-         }
-      });
-      ctx.restore();
-
-      // Waves
-      const drawWave = (offsetPhase: number, color: string, ampFactor: number, yOffset: number) => {
+      const drawWave = (offset: number, alpha: number, ampMult: number, yShift: number) => {
         ctx.beginPath();
-        ctx.moveTo(0, height); 
-        const step = 5; 
-        for (let x = 0; x <= width + step; x += step) {
-           const scaledX = x * 0.015;
-           const y = waterSurfaceY + yOffset + 
-                     Math.sin(scaledX + p.phase + offsetPhase) * (currentAmp * ampFactor) + 
-                     Math.sin(scaledX * 2.1 + p.phase * 1.3) * (currentAmp * 0.4 * ampFactor);
-           ctx.lineTo(x, y);
+        ctx.moveTo(0, height);
+        const stepSize = 10;
+        for (let x = 0; x <= width + stepSize; x += stepSize) {
+          const y = waterSurfaceY + yShift + Math.sin(x * 0.012 + p.phase + offset) * WAVE_BASE_AMP * ampMult;
+          ctx.lineTo(x, y);
         }
-        ctx.lineTo(width, height); 
-        ctx.lineTo(0, height);
-        ctx.closePath();
-        ctx.fillStyle = color;
+        ctx.lineTo(width, height);
+        ctx.fillStyle = `rgba(${Math.round(p.color.r)}, ${Math.round(p.color.g)}, ${Math.round(p.color.b)}, ${alpha})`;
         ctx.fill();
       };
 
-      drawWave(0, colorStr(0.4), 0.8, 10); 
-      drawWave(2, colorStr(0.6), 0.9, 5);
+      // Background layers
+      drawWave(0, 0.25, 0.8, 15);
+      drawWave(2, 0.4, 0.6, 8);
       
-      const gradient = ctx.createLinearGradient(0, waterSurfaceY - 50, 0, height);
-      gradient.addColorStop(0, colorStr(0.95));
-      gradient.addColorStop(1, colorStr(0.8));
-
-      ctx.fillStyle = gradient;
+      // Main Surface layer
+      const grad = ctx.createLinearGradient(0, waterSurfaceY - 20, 0, height);
+      grad.addColorStop(0, `rgba(${Math.round(p.color.r)}, ${Math.round(p.color.g)}, ${Math.round(p.color.b)}, 0.9)`);
+      grad.addColorStop(1, `rgba(${Math.round(p.color.r * 0.5)}, ${Math.round(p.color.g * 0.5)}, ${Math.round(p.color.b * 0.5)}, 0.8)`);
+      
       ctx.beginPath();
       ctx.moveTo(0, height);
-      const step = 4;
-      for (let x = 0; x <= width + step; x += step) {
-           const scaledX = x * 0.015;
-           const y = waterSurfaceY + 
-                     Math.sin(scaledX + p.phase + 4) * currentAmp + 
-                     Math.cos(scaledX * 1.7 - p.phase) * (currentAmp * 0.4);
-           ctx.lineTo(x, y);
+      for (let x = 0; x <= width + 10; x += 10) {
+        const y = waterSurfaceY + Math.sin(x * 0.015 + p.phase + 4) * WAVE_BASE_AMP;
+        ctx.lineTo(x, y);
       }
       ctx.lineTo(width, height);
-      ctx.lineTo(0, height);
-      ctx.closePath();
+      ctx.fillStyle = grad;
       ctx.fill();
-
-      // Highlight
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (let x = 0; x <= width + step; x += step) {
-           const scaledX = x * 0.015;
-           const y = waterSurfaceY + 
-                     Math.sin(scaledX + p.phase + 4) * currentAmp + 
-                     Math.cos(scaledX * 1.7 - p.phase) * (currentAmp * 0.4);
-           if (x === 0) ctx.moveTo(0, y);
-           else ctx.lineTo(x, y);
-      }
-      ctx.stroke();
 
       animationFrameId = requestAnimationFrame(render);
     };
-    render(lastTime);
+    render();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [active]);
+  }, [active, step, depth, temp]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 w-full h-full pointer-events-none bg-cyan-900/20">
+    <div ref={containerRef} className="absolute inset-0 z-0 bg-cyan-950/40 pointer-events-none">
       {active && <canvas ref={canvasRef} className="block w-full h-full" />}
     </div>
   );
 };
 
-
 const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCancel }) => {
-  // Steps: 1. Loc/Date, 2. Depth, 3. Temp, 4. Conditions (Duration/Vis), 5. Notes/Rating
   const [step, setStep] = useState(1);
-  const totalSteps = 5;
-  const stepTitles = [
-    "Where & When",
-    "Max Depth",
-    "Water Temp",
-    "Conditions",
-    "Reflections"
-  ];
-  
+  const [isInputFocused, setIsInputFocused] = useState(false);
   const [formData, setFormData] = useState<Partial<Dive>>({
     diveNumber: lastDiveNumber + 1,
     date: new Date().toISOString().split('T')[0],
     rating: 3,
     duration: 45,
     maxDepth: 18,
-    waterTemp: 24, // Default temp
-    visibility: '',
+    waterTemp: 24,
+    site: '',
+    location: '',
+    notes: '',
   });
 
-  // --- Carousel Swipe State ---
-  const [startX, setStartX] = useState<number | null>(null);
-  const [dragOffset, setDragOffset] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
+  const stepTitles = ["Where & When", "Max Depth", "Water Temp", "Conditions", "Reflections"];
 
-  // --- Interaction State ---
-  const [depthActive, setDepthActive] = useState(false);
-  const [tempActive, setTempActive] = useState(false);
-  const [isInputFocused, setIsInputFocused] = useState(false);
+  const handleNext = () => setStep(s => Math.min(s + 1, 5));
+  const handlePrev = () => setStep(s => Math.max(s - 1, 1));
 
-  // --- Helpers ---
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: type === 'number' ? (value === '' ? undefined : Number(value)) : value
     }));
-  };
-
-  const handleNext = (e?: React.MouseEvent | React.FormEvent) => {
-    if (e) {
-      e.preventDefault();
-      e.stopPropagation();
-    }
-    setStep(prev => Math.min(prev + 1, totalSteps));
-  };
-
-  const handlePrev = () => {
-    setStep(prev => Math.max(prev - 1, 1));
   };
 
   const handleSave = () => {
@@ -474,399 +182,194 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
         setStep(1);
         return;
     }
-
-    const newDive: Dive = {
+    onSave({
       id: Date.now().toString(),
-      diveNumber: formData.diveNumber || lastDiveNumber + 1,
+      diveNumber: formData.diveNumber!,
       date: formData.date!,
       location: formData.location!,
       site: formData.site!,
       duration: formData.duration || 0,
       maxDepth: formData.maxDepth || 0,
-      visibility: formData.visibility,
       waterTemp: formData.waterTemp,
+      visibility: formData.visibility,
       notes: formData.notes || '',
       rating: formData.rating || 3,
-    };
-
-    onSave(newDive);
+    });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (step === totalSteps) {
-      handleSave();
-    } else {
-      handleNext();
-    }
-  };
-
-  // --- Carousel Drag Logic (Horizontal) ---
-  const handleDragStart = (clientX: number) => {
-    if (isInputFocused) return; // Disable swipe if input is focused (keyboard is open)
-    setStartX(clientX);
-    setIsDragging(true);
-  };
-
-  const handleDragMove = (clientX: number) => {
-    if (!isDragging || startX === null) return;
-    const diff = clientX - startX;
-    setDragOffset(diff);
-  };
-
-  const handleDragEnd = () => {
-    if (!isDragging) return;
-    if (Math.abs(dragOffset) > 50) {
-        if (dragOffset > 0) {
-            handlePrev();
-        } else {
-            handleNext();
-        }
-    }
-    setDragOffset(0);
-    setStartX(null);
-    setIsDragging(false);
-  };
-
-  // --- Depth Card Drag Logic (Vertical) ---
-  const handleDepthInteraction = (clientY: number, rect: DOMRect) => {
-    const height = rect.height;
-    const yFromBottom = rect.bottom - clientY;
-    const clampedY = Math.max(0, Math.min(height, yFromBottom));
-    const percentage = clampedY / height;
-    const newDepth = Math.round(percentage * MAX_DEPTH_SCALE);
-    setFormData(prev => ({ ...prev, maxDepth: newDepth }));
-  };
-
-  const onDepthStart = (e: React.MouseEvent | React.TouchEvent) => {
-      e.stopPropagation(); 
-      if (!('touches' in e) && e.button !== 0) return;
-      setDepthActive(true);
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const target = e.currentTarget as HTMLDivElement;
-      handleDepthInteraction(clientY, target.getBoundingClientRect());
-  };
-
-  const onDepthMove = (e: React.MouseEvent | React.TouchEvent) => {
-      e.stopPropagation(); 
-      if (!('touches' in e) && e.buttons !== 1) return;
-      if (!depthActive) setDepthActive(true);
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const target = e.currentTarget as HTMLDivElement;
-      handleDepthInteraction(clientY, target.getBoundingClientRect());
-  };
-
-  const onDepthEnd = (e: React.MouseEvent | React.TouchEvent) => {
-      e.stopPropagation();
-      setDepthActive(false);
-  };
-
-  // --- Temp Card Drag Logic (Vertical) ---
-  const handleTempInteraction = (clientY: number, rect: DOMRect) => {
-    const height = rect.height;
-    const yFromBottom = rect.bottom - clientY;
-    const clampedY = Math.max(0, Math.min(height, yFromBottom));
-    const percentage = clampedY / height;
-    const newTemp = Math.round(percentage * MAX_TEMP_SCALE);
-    setFormData(prev => ({ ...prev, waterTemp: newTemp }));
-  };
-
-  const onTempStart = (e: React.MouseEvent | React.TouchEvent) => {
-      e.stopPropagation(); 
-      if (!('touches' in e) && e.button !== 0) return;
-      setTempActive(true);
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const target = e.currentTarget as HTMLDivElement;
-      handleTempInteraction(clientY, target.getBoundingClientRect());
-  };
-
-  const onTempMove = (e: React.MouseEvent | React.TouchEvent) => {
-      e.stopPropagation(); 
-      if (!('touches' in e) && e.buttons !== 1) return;
-      if (!tempActive) setTempActive(true);
-      const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-      const target = e.currentTarget as HTMLDivElement;
-      handleTempInteraction(clientY, target.getBoundingClientRect());
-  };
-
-  const onTempEnd = (e: React.MouseEvent | React.TouchEvent) => {
-      e.stopPropagation();
-      setTempActive(false);
+  // --- Interaction Logic (Vertical Drag for Depth/Temp) ---
+  const handleDrag = (e: React.MouseEvent | React.TouchEvent, type: 'depth' | 'temp') => {
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const val = Math.round(Math.max(0, Math.min(1, (rect.bottom - clientY) / rect.height)) * 40);
+    setFormData(prev => ({ ...prev, [type === 'depth' ? 'maxDepth' : 'waterTemp']: val }));
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#083344] animate-fade-in">
-      {/* 
-         Structure switched to Absolute Positioning for proper full-screen layering.
-         Carousel is at the bottom (z-0), overlays are on top (z-30).
-      */}
-      <div className="relative w-full h-full overflow-hidden">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#083344] overflow-hidden">
+      
+      {!isInputFocused && (
+        <ScubaBackground 
+          step={step} 
+          depth={formData.maxDepth || 0} 
+          temp={formData.waterTemp || 0} 
+          active={true}
+        />
+      )}
 
-        {/* Header - Absolute Overlay */}
-        <div className="absolute top-0 left-0 w-full z-30 flex items-start justify-between px-6 py-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pointer-events-none">
-            <div className="flex flex-col pointer-events-auto">
-                {/* Animated Title Transition */}
-                <h2 key={step} className="text-3xl font-black text-white drop-shadow-lg leading-tight animate-slide-down">
-                   {stepTitles[step - 1]}
-                </h2>
-                <span className="text-xs font-bold text-cyan-200 mt-1 uppercase tracking-wide">Entry #{formData.diveNumber}</span>
-            </div>
-
-            <button 
-                onClick={onCancel} 
-                className="pointer-events-auto p-2.5 bg-black/20 hover:bg-black/40 rounded-full text-white transition-colors backdrop-blur-md border border-white/10 mt-1"
-            >
-                <X size={24} />
-            </button>
+      {/* Header Overlay */}
+      <div className="relative z-20 flex items-start justify-between px-6 py-6 pt-[calc(1.5rem+env(safe-area-inset-top))]">
+        <div className="flex flex-col">
+          <h2 className="text-3xl font-black text-white drop-shadow-lg">{stepTitles[step - 1]}</h2>
+          <span className="text-xs font-bold text-cyan-200 mt-1 uppercase tracking-wider">Entry #{formData.diveNumber}</span>
         </div>
-
-        {/* Footer Navigation - Absolute Overlay */}
-        <div className="absolute bottom-0 left-0 w-full z-30 flex flex-col items-center pb-[calc(2rem+env(safe-area-inset-bottom))] pt-12 bg-gradient-to-t from-[#083344]/90 to-transparent pointer-events-none">
-            {/* Pagination Dots */}
-            <div className="flex justify-center space-x-2 pb-6 pointer-events-auto">
-                {[1, 2, 3, 4, 5].map(i => (
-                    <button
-                        key={i} 
-                        onClick={() => setStep(i)}
-                        className={`h-1.5 rounded-full transition-all duration-300 shadow-sm ${step === i ? 'bg-cyan-400 w-6' : 'bg-white/30 w-1.5 hover:bg-white/50'}`} 
-                        aria-label={`Go to step ${i}`}
-                    />
-                ))}
-            </div>
-
-            {/* Next/Save Button */}
-            <div className="px-6 w-full pointer-events-auto">
-               {step < totalSteps ? (
-                 <button
-                    onClick={handleNext}
-                    className="w-full py-3.5 rounded-full bg-cyan-500 text-cyan-950 font-bold hover:bg-cyan-400 shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-all flex items-center justify-center text-base"
-                 >
-                    Next <ChevronRight size={18} className="ml-1" />
-                 </button>
-               ) : (
-                 <button 
-                   onClick={handleSave}
-                   className="w-full py-3.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-bold shadow-lg shadow-cyan-500/20 active:scale-[0.98] transition-all flex items-center justify-center text-base"
-                 >
-                   Log dive
-                 </button>
-               )}
-            </div>
-        </div>
-
-        {/* Full Screen Carousel - Behind overlays */}
-        <div 
-            className={`absolute inset-0 w-full h-full touch-pan-y cursor-grab ${isDragging ? 'cursor-grabbing' : ''} z-0`}
-            onTouchStart={(e) => handleDragStart(e.touches[0].clientX)}
-            onTouchMove={(e) => handleDragMove(e.touches[0].clientX)}
-            onTouchEnd={handleDragEnd}
-            onMouseDown={(e) => handleDragStart(e.clientX)}
-            onMouseMove={(e) => {
-                if (isDragging) {
-                    e.preventDefault(); 
-                    handleDragMove(e.clientX);
-                }
-            }}
-            onMouseUp={handleDragEnd}
-            onMouseLeave={() => isDragging && handleDragEnd()}
-        >
-            <form onSubmit={handleSubmit} className="w-full h-full">
-                <div 
-                    className={`flex h-full w-full ${isDragging ? '' : 'transition-transform duration-500 cubic-bezier(0.2, 0.8, 0.2, 1)'}`}
-                    style={{ 
-                        transform: `translateX(calc(-1 * ${step - 1} * 100% + ${dragOffset}px))` 
-                    }}
-                >
-                    
-                    {/* STEP 1: Basic Info */}
-                    <div className="min-w-full h-full flex flex-col justify-center px-6 pt-32 pb-48 select-none" onMouseDown={e => e.stopPropagation()}>
-                        <div className="w-full max-w-sm mx-auto space-y-8">
-                            <div className="space-y-6">
-                                <div>
-                                    <label className="block text-xs font-bold text-cyan-200 mb-2 uppercase tracking-wide">Date</label>
-                                    <input 
-                                        type="date" 
-                                        name="date" 
-                                        value={formData.date}
-                                        onChange={handleChange}
-                                        onFocus={() => setIsInputFocused(true)}
-                                        onBlur={() => setIsInputFocused(false)}
-                                        className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner appearance-none min-w-0"
-                                    />
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-cyan-200 mb-2 uppercase tracking-wide">Location</label>
-                                    <div className="relative">
-                                        <MapPin size={18} className="absolute left-4 top-3.5 text-cyan-400" />
-                                        <input 
-                                            type="text" 
-                                            name="location" 
-                                            placeholder="Thailand"
-                                            value={formData.location || ''}
-                                            onChange={handleChange}
-                                            onFocus={() => setIsInputFocused(true)}
-                                            onBlur={() => setIsInputFocused(false)}
-                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-cyan-200 mb-2 uppercase tracking-wide">Dive Site</label>
-                                    <div className="relative">
-                                        <Anchor size={18} className="absolute left-4 top-3.5 text-cyan-400" />
-                                        <input 
-                                            type="text" 
-                                            name="site" 
-                                            placeholder="Chumphon Pinnacle"
-                                            value={formData.site || ''}
-                                            onChange={handleChange}
-                                            onFocus={() => setIsInputFocused(true)}
-                                            onBlur={() => setIsInputFocused(false)}
-                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* STEP 2: Interactive Depth Card (Full Screen) */}
-                    <div 
-                        className="min-w-full h-full relative select-none cursor-ns-resize overflow-hidden"
-                        onTouchStart={onDepthStart}
-                        onTouchMove={onDepthMove}
-                        onTouchEnd={onDepthEnd}
-                        onMouseDown={onDepthStart}
-                        onMouseMove={onDepthMove}
-                        onMouseUp={onDepthEnd}
-                        onMouseLeave={onDepthEnd}
-                    >
-                         <DepthVisualizer depth={formData.maxDepth || 0} active={(step === 2 || step === 1 || step === 3) && !isInputFocused} />
-
-                         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none pb-20">
-                            <div className="flex flex-col items-center drop-shadow-lg mt-12">
-                                <span className={`text-9xl font-black text-white tracking-tighter transition-transform duration-100 ${depthActive ? 'scale-110' : 'scale-100'}`}>
-                                    {formData.maxDepth}
-                                </span>
-                                <span className="text-3xl text-white/80 font-bold mt-2 tracking-widest">METERS</span>
-                            </div>
-
-                            <div className={`mt-10 text-cyan-100/80 text-xs transition-opacity duration-300 ${depthActive ? 'opacity-0' : 'opacity-100 animate-bounce'}`}>
-                                <div className="uppercase tracking-wide font-bold drop-shadow-md">Drag to adjust</div>
-                            </div>
-                         </div>
-                    </div>
-
-                    {/* STEP 3: Interactive Temp Card (Full Screen) */}
-                    <div 
-                        className="min-w-full h-full relative select-none cursor-ns-resize overflow-hidden"
-                        onTouchStart={onTempStart}
-                        onTouchMove={onTempMove}
-                        onTouchEnd={onTempEnd}
-                        onMouseDown={onTempStart}
-                        onMouseMove={onTempMove}
-                        onMouseUp={onTempEnd}
-                        onMouseLeave={onTempEnd}
-                    >
-                         <TemperatureVisualizer temp={formData.waterTemp || 0} active={(step === 3 || step === 2 || step === 4) && !isInputFocused} />
-
-                         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none pb-20">
-                            <div className="flex flex-col items-center drop-shadow-lg mt-12">
-                                <span className={`text-9xl font-black text-white tracking-tighter transition-transform duration-100 ${tempActive ? 'scale-110' : 'scale-100'}`}>
-                                    {formData.waterTemp}
-                                </span>
-                                <span className="text-3xl text-white/80 font-bold mt-2 tracking-widest">CELSIUS</span>
-                            </div>
-
-                            <div className={`mt-10 text-cyan-100/80 text-xs transition-opacity duration-300 ${tempActive ? 'opacity-0' : 'opacity-100 animate-bounce'}`}>
-                                <div className="uppercase tracking-wide font-bold drop-shadow-md">Drag to adjust</div>
-                            </div>
-                         </div>
-                    </div>
-
-                    {/* STEP 4: Conditions (Stats - Duration & Vis) */}
-                    <div className="min-w-full h-full flex flex-col justify-center px-6 pt-32 pb-48 select-none" onMouseDown={e => e.stopPropagation()}>
-                         <div className="w-full max-w-sm mx-auto space-y-8">
-                            <div className="space-y-6">
-                                <div>
-                                    <label className="block text-xs font-bold text-cyan-200 mb-2 uppercase tracking-wide">Duration</label>
-                                    <div className="relative">
-                                        <Clock size={18} className="absolute left-4 top-3.5 text-cyan-400" />
-                                        <input 
-                                            type="number" 
-                                            name="duration" 
-                                            value={formData.duration}
-                                            onChange={handleChange}
-                                            onFocus={() => setIsInputFocused(true)}
-                                            onBlur={() => setIsInputFocused(false)}
-                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
-                                        />
-                                        <span className="absolute right-4 top-3.5 text-cyan-600 text-sm font-medium">min</span>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-cyan-200 mb-2 uppercase tracking-wide">Visibility</label>
-                                    <div className="relative">
-                                        <Eye size={18} className="absolute left-4 top-3.5 text-cyan-400" />
-                                        <input 
-                                            type="text" 
-                                            name="visibility" 
-                                            placeholder="15m"
-                                            value={formData.visibility || ''}
-                                            onChange={handleChange}
-                                            onFocus={() => setIsInputFocused(true)}
-                                            onBlur={() => setIsInputFocused(false)}
-                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* STEP 5: Experience */}
-                    <div className="min-w-full h-full flex flex-col justify-center px-6 pt-32 pb-48 select-none" onMouseDown={e => e.stopPropagation()}>
-                        <div className="w-full max-w-sm mx-auto space-y-6 h-full flex flex-col justify-center">
-                            <div className="mb-6 mt-10">
-                                <label className="block text-xs font-bold text-cyan-200 mb-3 uppercase tracking-wide text-center">Rate this dive</label>
-                                <div className="flex justify-between px-2">
-                                    {[1, 2, 3, 4, 5].map((star) => (
-                                    <button
-                                        key={star}
-                                        type="button"
-                                        onClick={() => setFormData(prev => ({ ...prev, rating: star }))}
-                                        className={`p-2 transition-transform active:scale-125 ${
-                                        (formData.rating || 0) >= star ? 'text-yellow-400 drop-shadow-[0_0_12px_rgba(250,204,21,0.5)]' : 'text-cyan-900'
-                                        }`}
-                                    >
-                                        <Star size={36} fill={(formData.rating || 0) >= star ? "currentColor" : "currentColor"} />
-                                    </button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className="flex-1 flex flex-col min-h-0">
-                                <label className="block text-xs font-bold text-cyan-200 mb-3 uppercase tracking-wide">Notes</label>
-                                <textarea 
-                                    name="notes" 
-                                    placeholder="Describe your experience..."
-                                    value={formData.notes || ''}
-                                    onChange={handleChange}
-                                    onFocus={() => setIsInputFocused(true)}
-                                    onBlur={() => setIsInputFocused(false)}
-                                    className="w-full flex-1 bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-4 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all placeholder:text-cyan-600 resize-none leading-relaxed shadow-inner appearance-none min-w-0"
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </form>
-        </div>
-        
+        <button onClick={onCancel} className="p-2 bg-black/20 rounded-full text-white backdrop-blur-md border border-white/10">
+          <X size={24} />
+        </button>
       </div>
+
+      {/* Content Area */}
+      <div className="relative z-10 flex-1 flex flex-col justify-center px-6">
+        <div className="w-full max-w-sm mx-auto">
+          {step === 1 && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Date</label>
+                <input 
+                  type="date" name="date" value={formData.date} onChange={handleChange}
+                  onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-cyan-400 transition-all min-w-0 appearance-none"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Location</label>
+                <div className="relative">
+                  <MapPin size={18} className="absolute left-4 top-4 text-cyan-400" />
+                  <input 
+                    type="text" name="location" placeholder="e.g. Thailand" value={formData.location} onChange={handleChange}
+                    onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-400 min-w-0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Dive Site</label>
+                <div className="relative">
+                  <Anchor size={18} className="absolute left-4 top-4 text-cyan-400" />
+                  <input 
+                    type="text" name="site" placeholder="e.g. Chumphon Pinnacle" value={formData.site} onChange={handleChange}
+                    onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-400 min-w-0"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div 
+              className="h-[50vh] flex flex-col items-center justify-center cursor-ns-resize select-none active:scale-[0.98] transition-transform"
+              onMouseDown={(e) => handleDrag(e, 'depth')}
+              onMouseMove={(e) => e.buttons === 1 && handleDrag(e, 'depth')}
+              onTouchMove={(e) => handleDrag(e, 'depth')}
+            >
+              <div className="text-9xl font-black text-white tracking-tighter drop-shadow-2xl">{formData.maxDepth}</div>
+              <div className="text-2xl text-white/60 font-bold tracking-widest">METERS</div>
+              <div className="mt-8 text-white/30 text-[10px] uppercase font-bold animate-pulse">Drag up/down</div>
+            </div>
+          )}
+
+          {step === 3 && (
+            <div 
+              className="h-[50vh] flex flex-col items-center justify-center cursor-ns-resize select-none active:scale-[0.98] transition-transform"
+              onMouseDown={(e) => handleDrag(e, 'temp')}
+              onMouseMove={(e) => e.buttons === 1 && handleDrag(e, 'temp')}
+              onTouchMove={(e) => handleDrag(e, 'temp')}
+            >
+              <div className="text-9xl font-black text-white tracking-tighter drop-shadow-2xl">{formData.waterTemp}</div>
+              <div className="text-2xl text-white/60 font-bold tracking-widest">CELSIUS</div>
+              <div className="mt-8 text-white/30 text-[10px] uppercase font-bold animate-pulse">Drag up/down</div>
+            </div>
+          )}
+
+          {step === 4 && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Duration (min)</label>
+                <div className="relative">
+                  <Clock size={18} className="absolute left-4 top-4 text-cyan-400" />
+                  <input 
+                    type="number" name="duration" value={formData.duration} onChange={handleChange}
+                    onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-cyan-400 min-w-0 appearance-none"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Visibility</label>
+                <div className="relative">
+                  <Eye size={18} className="absolute left-4 top-4 text-cyan-400" />
+                  <input 
+                    type="text" name="visibility" placeholder="e.g. 15m" value={formData.visibility} onChange={handleChange}
+                    onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-400 min-w-0"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {step === 5 && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="text-center">
+                 <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest">Rate this dive</label>
+                 <div className="flex justify-center space-x-2 mt-2">
+                   {[1, 2, 3, 4, 5].map(s => (
+                     <button key={s} onClick={() => setFormData(p => ({...p, rating: s}))} className={`transition-transform active:scale-125 ${formData.rating! >= s ? 'text-yellow-400' : 'text-white/10'}`}>
+                        <Star size={36} fill="currentColor" />
+                     </button>
+                   ))}
+                 </div>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Notes</label>
+                <textarea 
+                  name="notes" placeholder="How was it? Mention cool critters..." value={formData.notes} onChange={handleChange}
+                  onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-cyan-400 h-32 resize-none leading-relaxed"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Footer Navigation Overlay */}
+      <div className="relative z-20 px-6 pb-[calc(2rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-[#083344] via-[#083344]/80 to-transparent">
+        <div className="flex justify-center space-x-2 mb-6">
+          {[1, 2, 3, 4, 5].map(i => (
+            <div key={i} className={`h-1 rounded-full transition-all duration-300 ${step === i ? 'bg-cyan-400 w-6' : 'bg-white/20 w-1.5'}`} />
+          ))}
+        </div>
+        <div className="flex space-x-3">
+          {step > 1 && (
+            <button onClick={handlePrev} className="flex-1 py-4 bg-white/10 hover:bg-white/20 text-white font-bold rounded-2xl border border-white/10 flex items-center justify-center">
+              <ChevronLeft size={20} className="mr-1" /> Back
+            </button>
+          )}
+          <button 
+            onClick={step === 5 ? handleSave : handleNext} 
+            className="flex-[2] py-4 bg-cyan-500 hover:bg-cyan-400 text-cyan-950 font-black rounded-2xl shadow-xl shadow-cyan-950/20 active:scale-[0.98] transition-all flex items-center justify-center"
+          >
+            {step === 5 ? "Log Dive" : "Next Step"} {step < 5 && <ChevronRight size={20} className="ml-1" />}
+          </button>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards; }
+      `}</style>
     </div>
   );
 };
