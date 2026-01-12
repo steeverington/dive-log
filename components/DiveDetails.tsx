@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Dive } from '../types';
-import { X, MapPin, Clock, Calendar, Anchor, Thermometer, Eye, AlignLeft, Trash2 } from 'lucide-react';
+import { X, MapPin, Clock, Calendar, Anchor, Thermometer, Eye, AlignLeft, Trash2, AlertCircle } from 'lucide-react';
 
 interface DiveDetailsProps {
   dive: Dive;
@@ -9,15 +9,14 @@ interface DiveDetailsProps {
 }
 
 const DiveDetails: React.FC<DiveDetailsProps> = ({ dive, onClose, onDelete }) => {
+  const [isDeleting, setIsDeleting] = useState(false);
   
-  const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this dive log? This action cannot be undone.")) {
-      onDelete(dive.id);
-    }
+  const handleConfirmDelete = () => {
+    onDelete(dive.id);
   };
 
   return (
-    <div className="bg-[#083344] rounded-t-3xl sm:rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[85vh] w-full">
+    <div className="bg-[#083344] rounded-3xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[85vh] w-full">
       {/* Header Image Section */}
       <div className="relative p-6 pb-8 bg-gradient-to-br from-cyan-600 to-blue-900 flex-shrink-0">
         <button 
@@ -66,7 +65,7 @@ const DiveDetails: React.FC<DiveDetailsProps> = ({ dive, onClose, onDelete }) =>
         
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-3 mb-6">
-            <div className="bg-cyan-950/40 p-3 rounded-xl border border-cyan-800/30 flex items-center space-x-3">
+            <div className="bg-cyan-900/20 p-3 rounded-xl border border-cyan-800/30 flex items-center space-x-3">
                 <div className="p-2 bg-blue-500/20 rounded-lg text-blue-300">
                     <Anchor size={18} />
                 </div>
@@ -76,7 +75,7 @@ const DiveDetails: React.FC<DiveDetailsProps> = ({ dive, onClose, onDelete }) =>
                 </div>
             </div>
 
-            <div className="bg-cyan-950/40 p-3 rounded-xl border border-cyan-800/30 flex items-center space-x-3">
+            <div className="bg-cyan-900/20 p-3 rounded-xl border border-cyan-800/30 flex items-center space-x-3">
                 <div className="p-2 bg-cyan-500/20 rounded-lg text-cyan-300">
                     <Clock size={18} />
                 </div>
@@ -86,7 +85,7 @@ const DiveDetails: React.FC<DiveDetailsProps> = ({ dive, onClose, onDelete }) =>
                 </div>
             </div>
 
-            <div className="bg-cyan-950/40 p-3 rounded-xl border border-cyan-800/30 flex items-center space-x-3">
+            <div className="bg-cyan-900/20 p-3 rounded-xl border border-cyan-800/30 flex items-center space-x-3">
                 <div className="p-2 bg-orange-500/20 rounded-lg text-orange-300">
                     <Thermometer size={18} />
                 </div>
@@ -96,7 +95,7 @@ const DiveDetails: React.FC<DiveDetailsProps> = ({ dive, onClose, onDelete }) =>
                 </div>
             </div>
 
-            <div className="bg-cyan-950/40 p-3 rounded-xl border border-cyan-800/30 flex items-center space-x-3">
+            <div className="bg-cyan-900/20 p-3 rounded-xl border border-cyan-800/30 flex items-center space-x-3">
                 <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-300">
                     <Eye size={18} />
                 </div>
@@ -117,14 +116,39 @@ const DiveDetails: React.FC<DiveDetailsProps> = ({ dive, onClose, onDelete }) =>
             </p>
         </div>
 
-        {/* Delete Action */}
-        <button 
-          onClick={handleDelete}
-          className="w-full py-3 rounded-xl border border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 text-sm font-medium"
-        >
-          <Trash2 size={16} />
-          <span>Delete Dive Log</span>
-        </button>
+        {/* Delete Action with In-place Confirmation */}
+        <div className="mt-auto">
+            {!isDeleting ? (
+                <button 
+                  onClick={() => setIsDeleting(true)}
+                  className="w-full py-3.5 rounded-full border border-red-500/30 text-red-400 bg-red-500/10 hover:bg-red-500/20 active:scale-[0.98] transition-all flex items-center justify-center space-x-2 text-sm font-semibold"
+                >
+                  <Trash2 size={16} />
+                  <span>Delete Dive Log</span>
+                </button>
+            ) : (
+                <div className="bg-red-950/30 border border-red-500/30 rounded-3xl p-3 animate-fade-in">
+                    <div className="flex items-center justify-center text-red-300 mb-3 space-x-2">
+                        <AlertCircle size={16} />
+                        <span className="text-sm font-medium">Are you sure?</span>
+                    </div>
+                    <div className="flex space-x-3">
+                        <button 
+                          onClick={() => setIsDeleting(false)}
+                          className="flex-1 py-2.5 rounded-full border border-white/10 text-white bg-white/5 hover:bg-white/10 active:scale-[0.98] transition-all text-sm font-medium"
+                        >
+                          Cancel
+                        </button>
+                        <button 
+                          onClick={handleConfirmDelete}
+                          className="flex-1 py-2.5 rounded-full bg-red-500 text-white hover:bg-red-600 shadow-lg shadow-red-900/50 active:scale-[0.98] transition-all text-sm font-bold"
+                        >
+                          Delete
+                        </button>
+                    </div>
+                </div>
+            )}
+        </div>
 
       </div>
     </div>
