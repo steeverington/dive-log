@@ -16,10 +16,10 @@ const DiveCard: React.FC<DiveCardProps> = ({ dive, onClick }) => {
        >
         {/* Top Row: Badge & Date */}
         <div className="flex justify-between items-center mb-3 pointer-events-none">
-            <span className="bg-cyan-500/20 text-cyan-300 text-xs font-bold px-2.5 py-1 rounded-full">
+            <span className="bg-sky-500/20 text-sky-300 text-xs font-bold px-2.5 py-1 rounded-full">
                 #{dive.diveNumber}
             </span>
-            <span className="text-cyan-200/60 text-xs flex items-center font-medium">
+            <span className="text-sky-200/60 text-xs flex items-center font-medium">
                 <Calendar size={12} className="mr-1.5" />
                 {dive.date}
             </span>
@@ -30,7 +30,7 @@ const DiveCard: React.FC<DiveCardProps> = ({ dive, onClick }) => {
             <h3 className="text-2xl font-bold text-white mb-1.5 leading-tight shadow-black drop-shadow-sm">
                 {dive.site}
             </h3>
-            <div className="flex items-center text-cyan-200/80 text-sm">
+            <div className="flex items-center text-sky-200/80 text-sm">
                 <MapPin size={14} className="mr-1.5 shrink-0 opacity-70" />
                 <span className="truncate font-medium">{dive.location}</span>
             </div>
@@ -38,27 +38,27 @@ const DiveCard: React.FC<DiveCardProps> = ({ dive, onClick }) => {
 
         {/* Bottom Row: Stats */}
         <div className="grid grid-cols-3 gap-2 pointer-events-none">
-            <div className="bg-cyan-950/40 rounded-2xl p-2.5 flex flex-col items-center justify-center">
-                <div className="flex items-center text-cyan-400/80 text-[10px] uppercase tracking-wider font-bold mb-0.5">
+            <div className="bg-sky-950/40 rounded-2xl p-2.5 flex flex-col items-center justify-center">
+                <div className="flex items-center text-sky-400/80 text-[10px] uppercase tracking-wider font-bold mb-0.5">
                     <ArrowDown size={10} className="mr-1" />
                     Depth
                 </div>
-                <span className="font-mono text-white font-bold text-lg leading-none">{dive.maxDepth}<span className="text-sm font-normal text-cyan-200/50 ml-0.5">m</span></span>
+                <span className="font-mono text-white font-bold text-lg leading-none">{dive.maxDepth}<span className="text-sm font-normal text-sky-200/50 ml-0.5">m</span></span>
             </div>
-            <div className="bg-cyan-950/40 rounded-2xl p-2.5 flex flex-col items-center justify-center">
-                <div className="flex items-center text-cyan-400/80 text-[10px] uppercase tracking-wider font-bold mb-0.5">
+            <div className="bg-sky-950/40 rounded-2xl p-2.5 flex flex-col items-center justify-center">
+                <div className="flex items-center text-sky-400/80 text-[10px] uppercase tracking-wider font-bold mb-0.5">
                     <Clock size={10} className="mr-1" />
                     Time
                 </div>
-                <span className="font-mono text-white font-bold text-lg leading-none">{dive.duration}<span className="text-sm font-normal text-cyan-200/50 ml-0.5">'</span></span>
+                <span className="font-mono text-white font-bold text-lg leading-none">{dive.duration}<span className="text-sm font-normal text-sky-200/50 ml-0.5">'</span></span>
             </div>
-            <div className="bg-cyan-950/40 rounded-2xl p-2.5 flex flex-col items-center justify-center">
-                <div className="text-cyan-400/80 text-[10px] uppercase tracking-wider font-bold mb-0.5">
+            <div className="bg-sky-950/40 rounded-2xl p-2.5 flex flex-col items-center justify-center">
+                <div className="text-sky-400/80 text-[10px] uppercase tracking-wider font-bold mb-0.5">
                     Rating
                 </div>
                 <div className="flex space-x-[1px] pt-1">
                      {[...Array(5)].map((_, i) => (
-                        <span key={i} className={`text-xs leading-none ${i < dive.rating ? 'text-yellow-400' : 'text-cyan-900'}`}>★</span>
+                        <span key={i} className={`text-xs leading-none ${i < dive.rating ? 'text-yellow-400' : 'text-sky-900'}`}>★</span>
                      ))}
                 </div>
             </div>
