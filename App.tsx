@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Dive, ViewState } from './types';
-import { INITIAL_DIVES } from './constants';
+import { INITIAL_DIVES, DATA_VERSION } from './constants';
 import DiveCard from './components/DiveCard';
 import AddDiveForm from './components/AddDiveForm';
 import DiveDetails from './components/DiveDetails';
@@ -11,8 +11,11 @@ const App: React.FC = () => {
   // Initialize state lazily from localStorage to avoid race conditions and ensure persistence works correctly
   const [dives, setDives] = useState<Dive[]>(() => {
     try {
+      const savedVersion = localStorage.getItem('deepLogVersion');
       const savedDives = localStorage.getItem('deepLogDives');
-      if (savedDives) {
+      
+      // Only load from storage if the data version matches the current version in code
+      if (savedVersion === DATA_VERSION && savedDives) {
         return JSON.parse(savedDives);
       }
     } catch (e) {
@@ -27,6 +30,7 @@ const App: React.FC = () => {
   // Save dives to local storage whenever they change
   useEffect(() => {
     localStorage.setItem('deepLogDives', JSON.stringify(dives));
+    localStorage.setItem('deepLogVersion', DATA_VERSION);
   }, [dives]);
 
   const handleAddDive = (newDive: Dive) => {
