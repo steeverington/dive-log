@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Dive } from '../types';
-import { X, MapPin, Clock, Calendar, Anchor, Thermometer, Eye, AlignLeft, Trash2, AlertCircle } from 'lucide-react';
+import { X, MapPin, Clock, Calendar, Anchor, Thermometer, Eye, AlignLeft, Trash2, AlertCircle, Users } from 'lucide-react';
 
 interface DiveDetailsProps {
   dive: Dive;
@@ -105,6 +105,18 @@ const DiveDetails: React.FC<DiveDetailsProps> = ({ dive, onClose, onDelete }) =>
                 </div>
             </div>
         </div>
+
+        {/* Buddies */}
+        {dive.buddies && (
+            <div className="glass p-5 rounded-2xl bg-white/5 border border-white/5 mb-4">
+                <h3 className="text-xs font-bold text-sky-400 uppercase tracking-wider mb-2 flex items-center">
+                    <Users size={14} className="mr-2" /> Buddies
+                </h3>
+                <p className="text-sky-50 leading-relaxed text-sm opacity-90">
+                    {dive.buddies}
+                </p>
+            </div>
+        )}
 
         {/* Notes */}
         <div className="glass p-5 rounded-2xl bg-white/5 border border-white/5 mb-6">
