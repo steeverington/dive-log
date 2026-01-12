@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Dive } from '../types';
-import { X, ChevronRight, Star, Eye, Calendar, Anchor, MapPin, Clock } from 'lucide-react';
+import { X, ChevronRight, Star, Eye, Anchor, MapPin, Clock } from 'lucide-react';
 
 interface AddDiveFormProps {
   lastDiveNumber: number;
@@ -17,7 +17,7 @@ const WAVE_BASE_AMP = 8;
 const WAVE_SPEED_BASE = 0.05;
 
 // --- Helper Component: Physics Water Canvas (Depth) ---
-const DepthVisualizer = ({ depth, isInteract }: { depth: number, isInteract: boolean }) => {
+const DepthVisualizer = ({ depth }: { depth: number }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -204,7 +204,7 @@ const DepthVisualizer = ({ depth, isInteract }: { depth: number, isInteract: boo
 };
 
 // --- Helper Component: Physics Water Canvas (Temperature) ---
-const TemperatureVisualizer = ({ temp, isInteract }: { temp: number, isInteract: boolean }) => {
+const TemperatureVisualizer = ({ temp }: { temp: number }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -733,7 +733,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                         onMouseUp={onDepthEnd}
                         onMouseLeave={onDepthEnd}
                     >
-                         <DepthVisualizer depth={formData.maxDepth || 0} isInteract={depthActive} />
+                         <DepthVisualizer depth={formData.maxDepth || 0} />
 
                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none pb-20">
                             <div className="flex flex-col items-center drop-shadow-lg mt-12">
@@ -760,7 +760,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                         onMouseUp={onTempEnd}
                         onMouseLeave={onTempEnd}
                     >
-                         <TemperatureVisualizer temp={formData.waterTemp || 0} isInteract={tempActive} />
+                         <TemperatureVisualizer temp={formData.waterTemp || 0} />
 
                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none pb-20">
                             <div className="flex flex-col items-center drop-shadow-lg mt-12">
