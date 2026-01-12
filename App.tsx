@@ -82,10 +82,10 @@ const App: React.FC = () => {
                 <div className={`flex justify-between items-end mb-6 px-4 ${view === 'add' ? 'opacity-30' : 'opacity-100'}`}>
                     <div>
                         <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-sky-200 to-white">
-                            Ste's Log
+                            Dive Logbook
                         </h1>
                         <p className="text-sky-400 text-sm opacity-80">
-                            {dives.length} dives logged
+                            {dives.length} dives
                         </p>
                     </div>
                 </div>
@@ -102,7 +102,7 @@ const App: React.FC = () => {
                             </div>
                             <h3 className="text-xl font-semibold text-white mb-2">Start Your Log</h3>
                             <p className="text-sky-200/60 text-sm leading-relaxed max-w-xs">
-                                Your logbook is currently empty. Tap the + button to record your first dive from Ste's Log!
+                                Your logbook is currently empty. Tap the + button to record your first dive!
                             </p>
                         </div>
                     ) : (
