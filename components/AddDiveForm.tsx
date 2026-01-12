@@ -17,7 +17,7 @@ const WAVE_BASE_AMP = 8;
 const WAVE_SPEED_BASE = 0.05;
 
 // --- Helper Component: Physics Water Canvas (Depth) ---
-const DepthVisualizer = ({ depth }: { depth: number }) => {
+const DepthVisualizer = ({ depth, active }: { depth: number; active: boolean }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -41,6 +41,7 @@ const DepthVisualizer = ({ depth }: { depth: number }) => {
 
   // Handle Resize with ResizeObserver for robustness
   useEffect(() => {
+    if (!active) return;
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
@@ -49,7 +50,8 @@ const DepthVisualizer = ({ depth }: { depth: number }) => {
       const entry = entries[0];
       const width = entry.contentRect.width;
       const height = entry.contentRect.height;
-      const dpr = window.devicePixelRatio || 1;
+      // Cap DPR at 2 to prevent memory crashes on high-res iOS screens
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
@@ -67,10 +69,11 @@ const DepthVisualizer = ({ depth }: { depth: number }) => {
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [active]);
 
   // Animation Loop
   useEffect(() => {
+    if (!active) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -79,15 +82,17 @@ const DepthVisualizer = ({ depth }: { depth: number }) => {
     let animationFrameId: number;
     let lastTime = performance.now();
 
-    // Initialize bubbles
-    for(let i=0; i<20; i++) {
-       physics.current.bubbles.push({
-         x: Math.random(), 
-         y: Math.random(), 
-         r: 1 + Math.random() * 4, 
-         s: 0.2 + Math.random() * 0.8, 
-         off: Math.random() * Math.PI * 2 
-       });
+    // Initialize bubbles if empty
+    if (physics.current.bubbles.length === 0) {
+        for(let i=0; i<20; i++) {
+            physics.current.bubbles.push({
+                x: Math.random(), 
+                y: Math.random(), 
+                r: 1 + Math.random() * 4, 
+                s: 0.2 + Math.random() * 0.8, 
+                off: Math.random() * Math.PI * 2 
+            });
+        }
     }
 
     const render = (time: number) => {
@@ -194,17 +199,17 @@ const DepthVisualizer = ({ depth }: { depth: number }) => {
     };
     render(lastTime);
     return () => cancelAnimationFrame(animationFrameId);
-  }, []);
+  }, [active]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 w-full h-full pointer-events-none bg-cyan-900/20">
-      <canvas ref={canvasRef} className="block w-full h-full" />
+      {active && <canvas ref={canvasRef} className="block w-full h-full" />}
     </div>
   );
 };
 
 // --- Helper Component: Physics Water Canvas (Temperature) ---
-const TemperatureVisualizer = ({ temp }: { temp: number }) => {
+const TemperatureVisualizer = ({ temp, active }: { temp: number; active: boolean }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -224,6 +229,7 @@ const TemperatureVisualizer = ({ temp }: { temp: number }) => {
   }, [temp]);
 
   useEffect(() => {
+    if (!active) return;
     const container = containerRef.current;
     const canvas = canvasRef.current;
     if (!container || !canvas) return;
@@ -232,7 +238,9 @@ const TemperatureVisualizer = ({ temp }: { temp: number }) => {
       const entry = entries[0];
       const width = entry.contentRect.width;
       const height = entry.contentRect.height;
-      const dpr = window.devicePixelRatio || 1;
+      // Cap DPR at 2
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       canvas.width = width * dpr;
@@ -244,9 +252,10 @@ const TemperatureVisualizer = ({ temp }: { temp: number }) => {
 
     observer.observe(container);
     return () => observer.disconnect();
-  }, []);
+  }, [active]);
 
   useEffect(() => {
+    if (!active) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -255,14 +264,16 @@ const TemperatureVisualizer = ({ temp }: { temp: number }) => {
     let animationFrameId: number;
     let lastTime = performance.now();
 
-    for(let i=0; i<20; i++) {
-       physics.current.bubbles.push({
-         x: Math.random(), 
-         y: Math.random(), 
-         r: 1 + Math.random() * 4, 
-         s: 0.2 + Math.random() * 0.8, 
-         off: Math.random() * Math.PI * 2 
-       });
+    if (physics.current.bubbles.length === 0) {
+        for(let i=0; i<20; i++) {
+            physics.current.bubbles.push({
+                x: Math.random(), 
+                y: Math.random(), 
+                r: 1 + Math.random() * 4, 
+                s: 0.2 + Math.random() * 0.8, 
+                off: Math.random() * Math.PI * 2 
+            });
+        }
     }
 
     const render = (time: number) => {
@@ -295,25 +306,16 @@ const TemperatureVisualizer = ({ temp }: { temp: number }) => {
       const getThemeColor = (t: number) => {
         let r, g, b;
         if (t <= 27) {
-            // Cool Range (0-27)
-            // 0: (224, 242, 254) -> Sky 100
-            // 27: (14, 165, 233) -> Sky 500 (Vibrant Blue, keeping 23-27 blue)
             const p = Math.max(0, t / 27);
             r = 224 + (14 - 224) * p;
             g = 242 + (165 - 242) * p;
             b = 254 + (233 - 254) * p;
         } else if (t <= 32) {
-            // Transition to Warm (27-32)
-            // 27: (14, 165, 233)
-            // 32: (251, 146, 60) -> Orange 400
             const p = (t - 27) / 5;
             r = 14 + (251 - 14) * p;
             g = 165 + (146 - 165) * p;
             b = 233 + (60 - 233) * p;
         } else {
-            // Hot (32+)
-            // 32: (251, 146, 60)
-            // 40: (220, 38, 38) -> Red 600
             const p = Math.min(1, (t - 32) / 8);
             r = 251 + (220 - 251) * p;
             g = 146 + (38 - 146) * p;
@@ -403,11 +405,11 @@ const TemperatureVisualizer = ({ temp }: { temp: number }) => {
     };
     render(lastTime);
     return () => cancelAnimationFrame(animationFrameId);
-  }, []);
+  }, [active]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 w-full h-full pointer-events-none bg-cyan-900/20">
-      <canvas ref={canvasRef} className="block w-full h-full" />
+      {active && <canvas ref={canvasRef} className="block w-full h-full" />}
     </div>
   );
 };
@@ -675,7 +677,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                 >
                     
                     {/* STEP 1: Basic Info */}
-                    <div className="min-w-full h-full flex flex-col justify-center px-8 pt-32 pb-48 select-none" onMouseDown={e => e.stopPropagation()}>
+                    <div className="min-w-full h-full flex flex-col justify-center px-6 pt-32 pb-48 select-none" onMouseDown={e => e.stopPropagation()}>
                         <div className="w-full max-w-sm mx-auto space-y-8">
                             <div className="space-y-6">
                                 <div>
@@ -685,21 +687,21 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                                         name="date" 
                                         value={formData.date}
                                         onChange={handleChange}
-                                        className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-4 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner"
+                                        className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner appearance-none min-w-0"
                                     />
                                 </div>
 
                                 <div>
                                     <label className="block text-xs font-bold text-cyan-200 mb-2 uppercase tracking-wide">Location</label>
                                     <div className="relative">
-                                        <MapPin size={18} className="absolute left-4 top-4 text-cyan-400" />
+                                        <MapPin size={18} className="absolute left-4 top-3.5 text-cyan-400" />
                                         <input 
                                             type="text" 
                                             name="location" 
                                             placeholder="Thailand"
                                             value={formData.location || ''}
                                             onChange={handleChange}
-                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-4 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600"
+                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
                                         />
                                     </div>
                                 </div>
@@ -707,14 +709,14 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                                 <div>
                                     <label className="block text-xs font-bold text-cyan-200 mb-2 uppercase tracking-wide">Dive Site</label>
                                     <div className="relative">
-                                        <Anchor size={18} className="absolute left-4 top-4 text-cyan-400" />
+                                        <Anchor size={18} className="absolute left-4 top-3.5 text-cyan-400" />
                                         <input 
                                             type="text" 
                                             name="site" 
                                             placeholder="Chumphon Pinnacle"
                                             value={formData.site || ''}
                                             onChange={handleChange}
-                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-4 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600"
+                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
                                         />
                                     </div>
                                 </div>
@@ -733,7 +735,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                         onMouseUp={onDepthEnd}
                         onMouseLeave={onDepthEnd}
                     >
-                         <DepthVisualizer depth={formData.maxDepth || 0} />
+                         <DepthVisualizer depth={formData.maxDepth || 0} active={step === 2 || step === 1 || step === 3} />
 
                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none pb-20">
                             <div className="flex flex-col items-center drop-shadow-lg mt-12">
@@ -760,7 +762,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                         onMouseUp={onTempEnd}
                         onMouseLeave={onTempEnd}
                     >
-                         <TemperatureVisualizer temp={formData.waterTemp || 0} />
+                         <TemperatureVisualizer temp={formData.waterTemp || 0} active={step === 3 || step === 2 || step === 4} />
 
                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none pb-20">
                             <div className="flex flex-col items-center drop-shadow-lg mt-12">
@@ -777,35 +779,35 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                     </div>
 
                     {/* STEP 4: Conditions (Stats - Duration & Vis) */}
-                    <div className="min-w-full h-full flex flex-col justify-center px-8 pt-32 pb-48 select-none" onMouseDown={e => e.stopPropagation()}>
+                    <div className="min-w-full h-full flex flex-col justify-center px-6 pt-32 pb-48 select-none" onMouseDown={e => e.stopPropagation()}>
                          <div className="w-full max-w-sm mx-auto space-y-8">
                             <div className="space-y-6">
                                 <div>
                                     <label className="block text-xs font-bold text-cyan-200 mb-2 uppercase tracking-wide">Duration</label>
                                     <div className="relative">
-                                        <Clock size={18} className="absolute left-4 top-4 text-cyan-400" />
+                                        <Clock size={18} className="absolute left-4 top-3.5 text-cyan-400" />
                                         <input 
                                             type="number" 
                                             name="duration" 
                                             value={formData.duration}
                                             onChange={handleChange}
-                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-4 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600"
+                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
                                         />
-                                        <span className="absolute right-4 top-4 text-cyan-600 text-sm font-medium">min</span>
+                                        <span className="absolute right-4 top-3.5 text-cyan-600 text-sm font-medium">min</span>
                                     </div>
                                 </div>
 
                                 <div>
                                     <label className="block text-xs font-bold text-cyan-200 mb-2 uppercase tracking-wide">Visibility</label>
                                     <div className="relative">
-                                        <Eye size={18} className="absolute left-4 top-4 text-cyan-400" />
+                                        <Eye size={18} className="absolute left-4 top-3.5 text-cyan-400" />
                                         <input 
                                             type="text" 
                                             name="visibility" 
                                             placeholder="15m"
                                             value={formData.visibility || ''}
                                             onChange={handleChange}
-                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-4 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600"
+                                            className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
                                         />
                                     </div>
                                 </div>
@@ -814,7 +816,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                     </div>
 
                     {/* STEP 5: Experience */}
-                    <div className="min-w-full h-full flex flex-col justify-center px-8 pt-32 pb-48 select-none" onMouseDown={e => e.stopPropagation()}>
+                    <div className="min-w-full h-full flex flex-col justify-center px-6 pt-32 pb-48 select-none" onMouseDown={e => e.stopPropagation()}>
                         <div className="w-full max-w-sm mx-auto space-y-6 h-full flex flex-col justify-center">
                             <div className="mb-6 mt-10">
                                 <label className="block text-xs font-bold text-cyan-200 mb-3 uppercase tracking-wide text-center">Rate this dive</label>
@@ -841,7 +843,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                                     placeholder="Describe your experience..."
                                     value={formData.notes || ''}
                                     onChange={handleChange}
-                                    className="w-full flex-1 bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-4 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all placeholder:text-cyan-600 resize-none leading-relaxed shadow-inner"
+                                    className="w-full flex-1 bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-4 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all placeholder:text-cyan-600 resize-none leading-relaxed shadow-inner appearance-none min-w-0"
                                 />
                             </div>
                         </div>
