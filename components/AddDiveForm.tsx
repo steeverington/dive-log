@@ -21,12 +21,19 @@ const ScubaBackground = ({ step, depth, temp, active }: { step: number; depth: n
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Store current props in a ref to access them in the animation loop without restarting it
+  const propsRef = useRef({ step, depth, temp });
+
+  useEffect(() => {
+    propsRef.current = { step, depth, temp };
+  }, [step, depth, temp]);
+
   const physics = useRef({
     level: 50, // starting height in pixels
     velocity: 0,
     phase: 0,
     turbulence: 0,
-    color: { r: 6, g: 182, b: 212 }
+    color: { r: 14, g: 165, b: 233 } // Sky 500
   });
 
   const dimensions = useRef({ width: 0, height: 0 });
@@ -41,6 +48,10 @@ const ScubaBackground = ({ step, depth, temp, active }: { step: number; depth: n
       const entry = entries[0];
       const width = entry.contentRect.width;
       const height = entry.contentRect.height;
+      
+      // Prevent unnecessary canvas resets if dimensions haven't changed (e.g. mobile scroll/address bar)
+      if (Math.abs(width - dimensions.current.width) < 1 && Math.abs(height - dimensions.current.height) < 1) return;
+
       const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       
       canvas.style.width = `${width}px`;
@@ -71,6 +82,8 @@ const ScubaBackground = ({ step, depth, temp, active }: { step: number; depth: n
         return;
       }
 
+      // Read latest values from ref to avoid hook dependency restart
+      const { step, depth, temp } = propsRef.current;
       const p = physics.current;
       
       // Target Level based on step
@@ -79,9 +92,9 @@ const ScubaBackground = ({ step, depth, temp, active }: { step: number; depth: n
       if (step === 3) targetLevel = Math.max(height * 0.1, (temp / MAX_TEMP_SCALE) * height);
 
       // Target Color based on step - Adjusted for better visibility
-      let targetColor = { r: 6, g: 182, b: 212 }; // Step 1, 4, 5: Cyan 500
+      let targetColor = { r: 14, g: 165, b: 233 }; // Step 1, 4, 5: Sky 500
       if (step === 2) {
-         targetColor = { r: 14, g: 116, b: 144 }; // Step 2: Cyan 700 (Ocean Blue)
+         targetColor = { r: 3, g: 105, b: 161 }; // Step 2: Sky 700
       } else if (step === 3) {
          if (temp <= 25) targetColor = { r: 56, g: 189, b: 248 }; // Sky 400 (Cold)
          else if (temp <= 30) targetColor = { r: 251, g: 146, b: 60 }; // Orange 400 (Warm)
@@ -139,10 +152,10 @@ const ScubaBackground = ({ step, depth, temp, active }: { step: number; depth: n
     };
     render();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [active, step, depth, temp]);
+  }, [active]); // Removed dependencies: step, depth, temp
 
   return (
-    <div ref={containerRef} className="absolute inset-0 z-0 bg-cyan-950/40 pointer-events-none">
+    <div ref={containerRef} className="absolute inset-0 z-0 bg-sky-950/40 pointer-events-none">
       {active && <canvas ref={canvasRef} className="block w-full h-full" />}
     </div>
   );
@@ -206,7 +219,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-[#083344] overflow-hidden">
+    <div className="fixed inset-0 z-50 flex flex-col bg-[#082f49] overflow-hidden">
       
       {!isInputFocused && (
         <ScubaBackground 
@@ -221,7 +234,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
       <div className="relative z-20 flex items-start justify-between px-6 py-6 pt-[calc(1.5rem+env(safe-area-inset-top))]">
         <div className="flex flex-col">
           <h2 className="text-3xl font-black text-white drop-shadow-lg">{stepTitles[step - 1]}</h2>
-          <span className="text-xs font-bold text-cyan-200 mt-1 uppercase tracking-wider">Entry #{formData.diveNumber}</span>
+          <span className="text-xs font-bold text-sky-200 mt-1 uppercase tracking-wider">Entry #{formData.diveNumber}</span>
         </div>
         <button onClick={onCancel} className="p-2 bg-black/20 rounded-full text-white backdrop-blur-md border border-white/10">
           <X size={24} />
@@ -234,32 +247,32 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
           {step === 1 && (
             <div className="space-y-6 animate-fade-in">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Date</label>
+                <label className="text-[10px] font-bold text-sky-200 uppercase tracking-widest ml-1">Date</label>
                 <input 
                   type="date" name="date" value={formData.date} onChange={handleChange}
                   onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-cyan-400 transition-all min-w-0 appearance-none"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-sky-400 transition-all min-w-0 appearance-none"
                 />
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Location</label>
+                <label className="text-[10px] font-bold text-sky-200 uppercase tracking-widest ml-1">Location</label>
                 <div className="relative">
-                  <MapPin size={18} className="absolute left-4 top-4 text-cyan-400" />
+                  <MapPin size={18} className="absolute left-4 top-4 text-sky-400" />
                   <input 
                     type="text" name="location" placeholder="e.g. Thailand" value={formData.location} onChange={handleChange}
                     onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-400 min-w-0"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-sky-400 min-w-0"
                   />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Dive Site</label>
+                <label className="text-[10px] font-bold text-sky-200 uppercase tracking-widest ml-1">Dive Site</label>
                 <div className="relative">
-                  <Anchor size={18} className="absolute left-4 top-4 text-cyan-400" />
+                  <Anchor size={18} className="absolute left-4 top-4 text-sky-400" />
                   <input 
                     type="text" name="site" placeholder="e.g. Chumphon Pinnacle" value={formData.site} onChange={handleChange}
                     onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-400 min-w-0"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-sky-400 min-w-0"
                   />
                 </div>
               </div>
@@ -286,8 +299,10 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
               onMouseMove={(e) => e.buttons === 1 && handleDrag(e, 'temp')}
               onTouchMove={(e) => handleDrag(e, 'temp')}
             >
-              <div className="text-9xl font-black text-white tracking-tighter drop-shadow-2xl">{formData.waterTemp}</div>
-              <div className="text-2xl text-white/60 font-bold tracking-widest">CELSIUS</div>
+              <div className="flex items-start justify-center">
+                  <span className="text-9xl font-black text-white tracking-tighter drop-shadow-2xl">{formData.waterTemp}</span>
+                  <span className="text-5xl font-bold text-white/90 mt-4 ml-1">ºC</span>
+              </div>
               <div className="mt-8 text-white/30 text-[10px] uppercase font-bold animate-pulse">Drag up/down</div>
             </div>
           )}
@@ -295,24 +310,24 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
           {step === 4 && (
             <div className="space-y-6 animate-fade-in">
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Duration (min)</label>
+                <label className="text-[10px] font-bold text-sky-200 uppercase tracking-widest ml-1">Duration (min)</label>
                 <div className="relative">
-                  <Clock size={18} className="absolute left-4 top-4 text-cyan-400" />
+                  <Clock size={18} className="absolute left-4 top-4 text-sky-400" />
                   <input 
                     type="number" name="duration" value={formData.duration} onChange={handleChange}
                     onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-cyan-400 min-w-0 appearance-none"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white focus:outline-none focus:border-sky-400 min-w-0 appearance-none"
                   />
                 </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Visibility</label>
+                <label className="text-[10px] font-bold text-sky-200 uppercase tracking-widest ml-1">Visibility</label>
                 <div className="relative">
-                  <Eye size={18} className="absolute left-4 top-4 text-cyan-400" />
+                  <Eye size={18} className="absolute left-4 top-4 text-sky-400" />
                   <input 
                     type="text" name="visibility" placeholder="e.g. 15m" value={formData.visibility} onChange={handleChange}
                     onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-cyan-400 min-w-0"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-sky-400 min-w-0"
                   />
                 </div>
               </div>
@@ -322,7 +337,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
           {step === 5 && (
             <div className="space-y-6 animate-fade-in">
               <div className="text-center">
-                 <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest">Rate this dive</label>
+                 <label className="text-[10px] font-bold text-sky-200 uppercase tracking-widest">Rate this dive</label>
                  <div className="flex justify-center space-x-2 mt-2">
                    {[1, 2, 3, 4, 5].map(s => (
                      <button key={s} onClick={() => setFormData(p => ({...p, rating: s}))} className={`transition-transform active:scale-125 ${formData.rating! >= s ? 'text-yellow-400' : 'text-white/10'}`}>
@@ -332,11 +347,11 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                  </div>
               </div>
               <div className="space-y-1">
-                <label className="text-[10px] font-bold text-cyan-200 uppercase tracking-widest ml-1">Notes</label>
+                <label className="text-[10px] font-bold text-sky-200 uppercase tracking-widest ml-1">Notes</label>
                 <textarea 
                   name="notes" placeholder="How was it? Mention cool critters..." value={formData.notes} onChange={handleChange}
                   onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-cyan-400 h-32 resize-none leading-relaxed"
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-sky-400 h-32 resize-none leading-relaxed"
                 />
               </div>
             </div>
@@ -345,10 +360,10 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
       </div>
 
       {/* Footer Navigation Overlay */}
-      <div className="relative z-20 px-6 pb-[calc(2rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-[#083344] via-[#083344]/80 to-transparent">
+      <div className="relative z-20 px-6 pb-[calc(2rem+env(safe-area-inset-bottom))] bg-gradient-to-t from-[#082f49] via-[#082f49]/80 to-transparent">
         <div className="flex justify-center space-x-2 mb-6">
           {[1, 2, 3, 4, 5].map(i => (
-            <div key={i} className={`h-1 rounded-full transition-all duration-300 ${step === i ? 'bg-cyan-400 w-6' : 'bg-white/20 w-1.5'}`} />
+            <div key={i} className={`h-1 rounded-full transition-all duration-300 ${step === i ? 'bg-sky-400 w-6' : 'bg-white/20 w-1.5'}`} />
           ))}
         </div>
         <div className="flex space-x-3">
@@ -359,7 +374,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
           )}
           <button 
             onClick={step === 5 ? handleSave : handleNext} 
-            className="flex-[2] py-4 bg-cyan-500 hover:bg-cyan-400 text-cyan-950 font-black rounded-2xl shadow-xl shadow-cyan-950/20 active:scale-[0.98] transition-all flex items-center justify-center"
+            className="flex-[2] py-4 bg-sky-500 hover:bg-sky-400 text-sky-950 font-black rounded-2xl shadow-xl shadow-sky-950/20 active:scale-[0.98] transition-all flex items-center justify-center"
           >
             {step === 5 ? "Log Dive" : "Next Step"} {step < 5 && <ChevronRight size={20} className="ml-1" />}
           </button>
