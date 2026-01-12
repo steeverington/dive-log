@@ -18,7 +18,7 @@
   <!-- Front Wave (Bright Gradient) -->
   <path d="M0 350 C 180 280, 320 480, 512 350 L 512 512 L 0 512 Z" fill="url(#grad1)"/>
   
-  <!-- Bubbles -->
+  <!-- Bubbles! -->
   <circle cx="120" cy="180" r="16" fill="#ecfeff" opacity="0.3"/>
   <circle cx="150" cy="120" r="10" fill="#ecfeff" opacity="0.2"/>
   <circle cx="380" cy="150" r="24" fill="#ecfeff" opacity="0.3"/>
