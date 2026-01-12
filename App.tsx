@@ -8,19 +8,31 @@ import Stats from './components/Stats';
 import { Plus, List, PieChart, Anchor } from 'lucide-react';
 
 const App: React.FC = () => {
-  // Initialize state lazily from localStorage to avoid race conditions and ensure persistence works correctly
+  // Initialize state lazily from localStorage
   const [dives, setDives] = useState<Dive[]>(() => {
     try {
       const savedVersion = localStorage.getItem('deepLogVersion');
-      const savedDives = localStorage.getItem('deepLogDives');
+      const savedDivesJSON = localStorage.getItem('deepLogDives');
       
-      // Only load from storage if the data version matches the current version in code
-      if (savedVersion === DATA_VERSION && savedDives) {
-        return JSON.parse(savedDives);
+      if (savedDivesJSON) {
+        const savedDives = JSON.parse(savedDivesJSON) as Dive[];
+
+        // If versions match, trust the local storage completely (preserves deletions of default dives)
+        if (savedVersion === DATA_VERSION) {
+          return savedDives;
+        }
+
+        // If versions mismatch (app updated), Perform Smart Merge:
+        // 1. Keep all user-created dives (IDs that are timestamps)
+        // 2. Use the fresh INITIAL_DIVES (to get data fixes)
+        // Note: This might resurrect deleted default dives, but it ensures user data is never lost.
+        const userDives = savedDives.filter(d => !d.id.startsWith('preload-'));
+        return [...INITIAL_DIVES, ...userDives];
       }
     } catch (e) {
       console.error("Failed to parse saved dives", e);
     }
+    // Fallback if no local storage exists
     return INITIAL_DIVES;
   });
 
@@ -34,7 +46,11 @@ const App: React.FC = () => {
   }, [dives]);
 
   const handleAddDive = (newDive: Dive) => {
-    setDives(prev => [...prev, newDive]);
+    setDives(prev => {
+        // Add new dive to the list
+        const updated = [...prev, newDive];
+        return updated;
+    });
     setView('dashboard');
   };
 
