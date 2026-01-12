@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Dive } from '../types';
 import { X, ChevronRight, Star, Eye, Anchor, MapPin, Clock, ChevronLeft } from 'lucide-react';
 
 interface AddDiveFormProps {
   lastDiveNumber: number;
+  existingDives: Dive[];
   onSave: (dive: Dive) => void;
   onCancel: () => void;
 }
@@ -15,6 +16,21 @@ const SPRING_STRENGTH = 0.08;
 const DAMPING = 0.82;
 const WAVE_BASE_AMP = 8;
 const WAVE_SPEED_BASE = 0.035;
+
+// --- Helper: Sort by Frequency ---
+const sortByFrequency = (items: string[]) => {
+  const counts: Record<string, number> = {};
+  for (const item of items) {
+    if (!item) continue;
+    counts[item] = (counts[item] || 0) + 1;
+  }
+  // Object.keys implicitly deduplicates
+  return Object.keys(counts).sort((a, b) => {
+    const diff = counts[b] - counts[a];
+    // Sort by count desc, then alpha asc
+    return diff !== 0 ? diff : a.localeCompare(b);
+  });
+};
 
 // --- Combined Physics Background ---
 const ScubaBackground = ({ step, depth, temp, active }: { step: number; depth: number; temp: number; active: boolean }) => {
@@ -87,11 +103,15 @@ const ScubaBackground = ({ step, depth, temp, active }: { step: number; depth: n
       const p = physics.current;
       
       // Target Level based on step
-      let targetLevel = height * 0.15; // 15% baseline fill
-      if (step === 2) targetLevel = Math.max(height * 0.1, (depth / MAX_DEPTH_SCALE) * height);
-      if (step === 3) targetLevel = Math.max(height * 0.1, (temp / MAX_TEMP_SCALE) * height);
+      // Default: 15% baseline fill
+      let targetLevel = height * 0.15; 
+      
+      // For drag steps, map directly to value (0 at bottom, MAX at top)
+      // Removing min-height clamps so water follows finger precisely to the bottom
+      if (step === 2) targetLevel = (depth / MAX_DEPTH_SCALE) * height;
+      if (step === 3) targetLevel = (temp / MAX_TEMP_SCALE) * height;
 
-      // Target Color based on step - Adjusted for better visibility
+      // Target Color based on step
       let targetColor = { r: 14, g: 165, b: 233 }; // Step 1, 4, 5: Sky 500
       if (step === 2) {
          targetColor = { r: 3, g: 105, b: 161 }; // Step 2: Sky 700
@@ -152,7 +172,7 @@ const ScubaBackground = ({ step, depth, temp, active }: { step: number; depth: n
     };
     render();
     return () => cancelAnimationFrame(animationFrameId);
-  }, [active]); // Removed dependencies: step, depth, temp
+  }, [active]);
 
   return (
     <div ref={containerRef} className="absolute inset-0 z-0 bg-sky-950/40 pointer-events-none">
@@ -161,9 +181,11 @@ const ScubaBackground = ({ step, depth, temp, active }: { step: number; depth: n
   );
 };
 
-const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCancel }) => {
+const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, existingDives, onSave, onCancel }) => {
   const [step, setStep] = useState(1);
   const [isInputFocused, setIsInputFocused] = useState(false);
+  const [activeField, setActiveField] = useState<'location' | 'site' | null>(null);
+
   const [formData, setFormData] = useState<Partial<Dive>>({
     diveNumber: lastDiveNumber + 1,
     date: new Date().toISOString().split('T')[0],
@@ -176,7 +198,37 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
     notes: '',
   });
 
-  const stepTitles = ["Where & When", "Max Depth", "Water Temp", "Conditions", "Reflections"];
+  const stepTitles = ["Log a new dive", "Max Depth", "Water Temp", "Conditions", "Reflections"];
+
+  // --- AutoComplete Logic ---
+  const uniqueLocations = useMemo(() => {
+    const locations = existingDives.map(d => d.location).filter(Boolean);
+    return sortByFrequency(locations);
+  }, [existingDives]);
+
+  const relevantSites = useMemo(() => {
+      const currentLoc = formData.location?.trim();
+      let sites: string[] = [];
+      if (currentLoc) {
+          const locDives = existingDives.filter(d => d.location.toLowerCase() === currentLoc.toLowerCase());
+          if (locDives.length > 0) {
+              sites = locDives.map(d => d.site);
+          } else {
+              sites = existingDives.map(d => d.site);
+          }
+      } else {
+          sites = existingDives.map(d => d.site);
+      }
+      return sortByFrequency(sites);
+  }, [existingDives, formData.location]);
+
+  const filteredLocations = uniqueLocations.filter(l => 
+    !formData.location || l.toLowerCase().includes(formData.location.toLowerCase())
+  );
+  
+  const filteredSites = relevantSites.filter(s => 
+     !formData.site || s.toLowerCase().includes(formData.site.toLowerCase())
+  );
 
   const handleNext = () => setStep(s => Math.min(s + 1, 5));
   const handlePrev = () => setStep(s => Math.max(s - 1, 1));
@@ -210,11 +262,21 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
     });
   };
 
-  // --- Interaction Logic (Vertical Drag for Depth/Temp) ---
-  const handleDrag = (e: React.MouseEvent | React.TouchEvent, type: 'depth' | 'temp') => {
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    const rect = e.currentTarget.getBoundingClientRect();
-    const val = Math.round(Math.max(0, Math.min(1, (rect.bottom - clientY) / rect.height)) * 40);
+  // --- Interaction Logic (Full Screen Drag for Depth/Temp) ---
+  const handleDrag = (e: React.PointerEvent<HTMLDivElement>, type: 'depth' | 'temp') => {
+    // Capture pointer to ensure tracking even if finger leaves the div
+    e.currentTarget.setPointerCapture(e.pointerId);
+
+    const clientY = e.clientY;
+    const height = window.innerHeight;
+    
+    // Invert Y: 0 at bottom, 1 at top
+    let percent = (height - clientY) / height;
+    percent = Math.max(0, Math.min(1, percent));
+    
+    const scale = type === 'depth' ? MAX_DEPTH_SCALE : MAX_TEMP_SCALE;
+    const val = Math.round(percent * scale);
+    
     setFormData(prev => ({ ...prev, [type === 'depth' ? 'maxDepth' : 'waterTemp']: val }));
   };
 
@@ -231,19 +293,47 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
       )}
 
       {/* Header Overlay */}
-      <div className="relative z-20 flex items-start justify-between px-6 py-6 pt-[calc(1.5rem+env(safe-area-inset-top))]">
+      <div className="relative z-20 flex items-start justify-between px-6 py-6 pt-[calc(1.5rem+env(safe-area-inset-top))] pointer-events-none">
         <div className="flex flex-col">
           <h2 className="text-3xl font-black text-white drop-shadow-lg">{stepTitles[step - 1]}</h2>
           <span className="text-xs font-bold text-sky-200 mt-1 uppercase tracking-wider">Entry #{formData.diveNumber}</span>
         </div>
-        <button onClick={onCancel} className="p-2 bg-black/20 rounded-full text-white backdrop-blur-md border border-white/10">
+        <button onClick={onCancel} className="pointer-events-auto p-2 bg-black/20 rounded-full text-white backdrop-blur-md border border-white/10">
           <X size={24} />
         </button>
       </div>
 
       {/* Content Area */}
-      <div className="relative z-10 flex-1 flex flex-col justify-center px-6">
-        <div className="w-full max-w-sm mx-auto">
+      {/* For Steps 2 and 3, we use a full-screen overlay for interaction */}
+      {(step === 2 || step === 3) && (
+        <div 
+            className="fixed inset-0 z-10 flex flex-col items-center justify-center cursor-ns-resize touch-none"
+            onPointerDown={(e) => handleDrag(e, step === 2 ? 'depth' : 'temp')}
+            onPointerMove={(e) => { if (e.buttons === 1 || e.pointerType === 'touch') handleDrag(e, step === 2 ? 'depth' : 'temp'); }}
+        >
+             {/* Visuals only (pointer-events-none allows clicks to pass through if needed, but the parent captures all anyway) */}
+             <div className="pointer-events-none flex flex-col items-center justify-center">
+                 {step === 2 ? (
+                    <>
+                        <div className="text-9xl font-black text-white tracking-tighter drop-shadow-2xl">{formData.maxDepth}</div>
+                        <div className="text-2xl text-white/60 font-bold tracking-widest">METERS</div>
+                    </>
+                 ) : (
+                    <>
+                        <div className="flex items-start justify-center">
+                            <span className="text-9xl font-black text-white tracking-tighter drop-shadow-2xl">{formData.waterTemp}</span>
+                            <span className="text-5xl font-bold text-white/90 mt-4 ml-1">ºC</span>
+                        </div>
+                    </>
+                 )}
+                 <div className="mt-8 text-white/30 text-[10px] uppercase font-bold animate-pulse">Drag anywhere</div>
+             </div>
+        </div>
+      )}
+
+      {/* For other steps, standard layout */}
+      <div className="relative z-10 flex-1 flex flex-col justify-center px-6 pointer-events-none">
+        <div className="w-full max-w-sm mx-auto pointer-events-auto">
           {step === 1 && (
             <div className="space-y-6 animate-fade-in">
               <div className="space-y-1">
@@ -254,56 +344,68 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                   className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white focus:outline-none focus:border-sky-400 transition-all min-w-0 appearance-none"
                 />
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 relative">
                 <label className="text-[10px] font-bold text-sky-200 uppercase tracking-widest ml-1">Location</label>
                 <div className="relative">
                   <MapPin size={18} className="absolute left-4 top-4 text-sky-400" />
                   <input 
-                    type="text" name="location" placeholder="e.g. Thailand" value={formData.location} onChange={handleChange}
-                    onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
+                    type="text" 
+                    name="location" 
+                    placeholder="e.g. Thailand" 
+                    value={formData.location} 
+                    onChange={handleChange}
+                    onFocus={() => { setIsInputFocused(true); setActiveField('location'); }} 
+                    onBlur={() => { setIsInputFocused(false); setTimeout(() => setActiveField(null), 200); }}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-sky-400 min-w-0"
+                    autoComplete="off"
                   />
                 </div>
+                {/* Location Suggestions */}
+                {activeField === 'location' && filteredLocations.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-[#0c4a6e] border border-sky-500/30 rounded-xl shadow-2xl max-h-48 overflow-y-auto z-50 animate-fade-in">
+                         {filteredLocations.map(loc => (
+                             <div 
+                                key={loc}
+                                className="p-3 text-sm text-sky-100 border-b border-sky-500/10 last:border-0 hover:bg-sky-500/20 active:bg-sky-500/30 transition-colors cursor-pointer"
+                                onMouseDown={(e) => { e.preventDefault(); setFormData(p => ({...p, location: loc})); setActiveField(null); }}
+                             >
+                                 {loc}
+                             </div>
+                         ))}
+                    </div>
+                )}
               </div>
-              <div className="space-y-1">
+              <div className="space-y-1 relative">
                 <label className="text-[10px] font-bold text-sky-200 uppercase tracking-widest ml-1">Dive Site</label>
                 <div className="relative">
                   <Anchor size={18} className="absolute left-4 top-4 text-sky-400" />
                   <input 
-                    type="text" name="site" placeholder="e.g. Chumphon Pinnacle" value={formData.site} onChange={handleChange}
-                    onFocus={() => setIsInputFocused(true)} onBlur={() => setIsInputFocused(false)}
+                    type="text" 
+                    name="site" 
+                    placeholder="e.g. Chumphon Pinnacle" 
+                    value={formData.site} 
+                    onChange={handleChange}
+                    onFocus={() => { setIsInputFocused(true); setActiveField('site'); }} 
+                    onBlur={() => { setIsInputFocused(false); setTimeout(() => setActiveField(null), 200); }}
                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 pl-12 text-white placeholder:text-white/20 focus:outline-none focus:border-sky-400 min-w-0"
+                    autoComplete="off"
                   />
                 </div>
+                 {/* Site Suggestions */}
+                 {activeField === 'site' && filteredSites.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-2 bg-[#0c4a6e] border border-sky-500/30 rounded-xl shadow-2xl max-h-48 overflow-y-auto z-50 animate-fade-in">
+                         {filteredSites.map(site => (
+                             <div 
+                                key={site}
+                                className="p-3 text-sm text-sky-100 border-b border-sky-500/10 last:border-0 hover:bg-sky-500/20 active:bg-sky-500/30 transition-colors cursor-pointer"
+                                onMouseDown={(e) => { e.preventDefault(); setFormData(p => ({...p, site: site})); setActiveField(null); }}
+                             >
+                                 {site}
+                             </div>
+                         ))}
+                    </div>
+                )}
               </div>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div 
-              className="h-[50vh] flex flex-col items-center justify-center cursor-ns-resize select-none active:scale-[0.98] transition-transform"
-              onMouseDown={(e) => handleDrag(e, 'depth')}
-              onMouseMove={(e) => e.buttons === 1 && handleDrag(e, 'depth')}
-              onTouchMove={(e) => handleDrag(e, 'depth')}
-            >
-              <div className="text-9xl font-black text-white tracking-tighter drop-shadow-2xl">{formData.maxDepth}</div>
-              <div className="text-2xl text-white/60 font-bold tracking-widest">METERS</div>
-              <div className="mt-8 text-white/30 text-[10px] uppercase font-bold animate-pulse">Drag up/down</div>
-            </div>
-          )}
-
-          {step === 3 && (
-            <div 
-              className="h-[50vh] flex flex-col items-center justify-center cursor-ns-resize select-none active:scale-[0.98] transition-transform"
-              onMouseDown={(e) => handleDrag(e, 'temp')}
-              onMouseMove={(e) => e.buttons === 1 && handleDrag(e, 'temp')}
-              onTouchMove={(e) => handleDrag(e, 'temp')}
-            >
-              <div className="flex items-start justify-center">
-                  <span className="text-9xl font-black text-white tracking-tighter drop-shadow-2xl">{formData.waterTemp}</span>
-                  <span className="text-5xl font-bold text-white/90 mt-4 ml-1">ºC</span>
-              </div>
-              <div className="mt-8 text-white/30 text-[10px] uppercase font-bold animate-pulse">Drag up/down</div>
             </div>
           )}
 
