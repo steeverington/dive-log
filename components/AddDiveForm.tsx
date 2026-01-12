@@ -445,6 +445,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
   // --- Interaction State ---
   const [depthActive, setDepthActive] = useState(false);
   const [tempActive, setTempActive] = useState(false);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   // --- Helpers ---
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -502,6 +503,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
 
   // --- Carousel Drag Logic (Horizontal) ---
   const handleDragStart = (clientX: number) => {
+    if (isInputFocused) return; // Disable swipe if input is focused (keyboard is open)
     setStartX(clientX);
     setIsDragging(true);
   };
@@ -687,6 +689,8 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                                         name="date" 
                                         value={formData.date}
                                         onChange={handleChange}
+                                        onFocus={() => setIsInputFocused(true)}
+                                        onBlur={() => setIsInputFocused(false)}
                                         className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner appearance-none min-w-0"
                                     />
                                 </div>
@@ -701,6 +705,8 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                                             placeholder="Thailand"
                                             value={formData.location || ''}
                                             onChange={handleChange}
+                                            onFocus={() => setIsInputFocused(true)}
+                                            onBlur={() => setIsInputFocused(false)}
                                             className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
                                         />
                                     </div>
@@ -716,6 +722,8 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                                             placeholder="Chumphon Pinnacle"
                                             value={formData.site || ''}
                                             onChange={handleChange}
+                                            onFocus={() => setIsInputFocused(true)}
+                                            onBlur={() => setIsInputFocused(false)}
                                             className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
                                         />
                                     </div>
@@ -735,7 +743,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                         onMouseUp={onDepthEnd}
                         onMouseLeave={onDepthEnd}
                     >
-                         <DepthVisualizer depth={formData.maxDepth || 0} active={step === 2 || step === 1 || step === 3} />
+                         <DepthVisualizer depth={formData.maxDepth || 0} active={(step === 2 || step === 1 || step === 3) && !isInputFocused} />
 
                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none pb-20">
                             <div className="flex flex-col items-center drop-shadow-lg mt-12">
@@ -762,7 +770,7 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                         onMouseUp={onTempEnd}
                         onMouseLeave={onTempEnd}
                     >
-                         <TemperatureVisualizer temp={formData.waterTemp || 0} active={step === 3 || step === 2 || step === 4} />
+                         <TemperatureVisualizer temp={formData.waterTemp || 0} active={(step === 3 || step === 2 || step === 4) && !isInputFocused} />
 
                          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center pointer-events-none pb-20">
                             <div className="flex flex-col items-center drop-shadow-lg mt-12">
@@ -791,6 +799,8 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                                             name="duration" 
                                             value={formData.duration}
                                             onChange={handleChange}
+                                            onFocus={() => setIsInputFocused(true)}
+                                            onBlur={() => setIsInputFocused(false)}
                                             className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
                                         />
                                         <span className="absolute right-4 top-3.5 text-cyan-600 text-sm font-medium">min</span>
@@ -807,6 +817,8 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                                             placeholder="15m"
                                             value={formData.visibility || ''}
                                             onChange={handleChange}
+                                            onFocus={() => setIsInputFocused(true)}
+                                            onBlur={() => setIsInputFocused(false)}
                                             className="w-full bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-3 pl-11 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all shadow-inner placeholder:text-cyan-600 appearance-none min-w-0"
                                         />
                                     </div>
@@ -843,6 +855,8 @@ const AddDiveForm: React.FC<AddDiveFormProps> = ({ lastDiveNumber, onSave, onCan
                                     placeholder="Describe your experience..."
                                     value={formData.notes || ''}
                                     onChange={handleChange}
+                                    onFocus={() => setIsInputFocused(true)}
+                                    onBlur={() => setIsInputFocused(false)}
                                     className="w-full flex-1 bg-[#083344]/50 border border-cyan-500/30 rounded-xl p-4 text-base text-white focus:outline-none focus:border-cyan-300 focus:bg-[#083344] transition-all placeholder:text-cyan-600 resize-none leading-relaxed shadow-inner appearance-none min-w-0"
                                 />
                             </div>
